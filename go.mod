@@ -5,7 +5,6 @@ go 1.19
 require (
 	github.com/BurntSushi/toml v0.4.1
 	github.com/afocus/captcha v0.0.0-20191010092841-4bd1f21c8868
-	github.com/aliyun/alibaba-cloud-sdk-go v1.62.26
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/gin-contrib/gzip v0.0.5
 	github.com/gin-contrib/pprof v1.4.0
@@ -28,6 +27,7 @@ require (
 	github.com/nicksnyder/go-i18n/v2 v2.1.2
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b
 	github.com/prometheus/client_golang v1.12.1
+	github.com/qiniu/go-sdk/v7 v7.13.0
 	github.com/rs/cors v1.8.0
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
@@ -75,7 +75,6 @@ require (
 	github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect

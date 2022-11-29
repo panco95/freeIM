@@ -35,9 +35,9 @@ func (s *Service) SearchFriend(
 	accountId uint,
 	req *models.SearchFriendReq,
 ) ([]*models.Account, error) {
+	db := s.mysqlClient.Db()
 	accounts := make([]*models.Account, 0)
-	err := s.mysqlClient.Db().
-		Model(&models.Account{}).
+	err := db.Model(&models.Account{}).
 		Where("`id` <> ? AND (`username` = ? OR `nickname` = ? OR `mobile` = ? OR `email` = ? OR `id` = ?)",
 			accountId, req.Account, req.Account, req.Account, req.Account, req.Account).
 		Find(&accounts).
@@ -61,7 +61,7 @@ func (s *Service) AddFriend(
 	req *models.AddFriendReq,
 ) error {
 	db := s.mysqlClient.Db()
-	// 查询是否已经是好友
+
 	friend := &models.Friend{}
 	err := db.Model(&models.Friend{}).
 		Where("account_id = ?", accountId).
@@ -73,12 +73,12 @@ func (s *Service) AddFriend(
 	if friend.ID != 0 {
 		return errors.New(resp.FRIEND_EXISTS)
 	}
-	// 查询是否请求过还没验证
+
 	friendApply := &models.FriendApply{}
 	err = db.Model(&models.FriendApply{}).
 		Where("from_account_id = ?", accountId).
 		Where("to_account_id = ?", req.ToID).
-		Where("status = ?", models.FriendApplyStatusWait).
+		Where("status = ?", models.ApplyStatusWait).
 		First(friendApply).Error
 	if err != nil {
 		return err
@@ -86,13 +86,13 @@ func (s *Service) AddFriend(
 	if friendApply.ID != 0 {
 		return errors.New(resp.FRIEND_APPLY_EXISTS)
 	}
-	// 创建好友请求
+
 	err = db.Model(&models.FriendApply{}).
 		Create(&models.FriendApply{
 			FromAccountId: accountId,
 			ToAccountId:   req.ToID,
 			ApplyReason:   req.Reason,
-			Status:        models.FriendApplyStatusWait,
+			Status:        models.ApplyStatusWait,
 		}).Error
 	if err != nil {
 		return err
@@ -108,29 +108,20 @@ func (s *Service) AddFriendReply(
 	req *models.AddFriendReplyReq,
 ) error {
 	db := s.mysqlClient.Db()
-	// 查询是否已经是好友
-	friend := &models.Friend{}
-	err := db.Model(&models.Friend{}).
-		Where("account_id = ?", accountId).
-		Where("friend_id = ?", req.ToID).
-		First(friend).Error
-	if err != nil {
-		return err
-	}
-	if friend.ID != 0 {
-		return errors.New(resp.FRIEND_EXISTS)
-	}
-	// 查询请求是否存在
+
 	friendApply := &models.FriendApply{}
-	err = db.Model(&models.FriendApply{}).
+	err := db.Model(&models.FriendApply{}).
 		Where("from_account_id = ?", req.ToID).
 		Where("to_account_id = ?", accountId).
-		Where("status = ?", models.FriendApplyStatusWait).
+		Where("status = ?", models.ApplyStatusWait).
 		First(friendApply).Error
 	if err != nil {
 		return err
 	}
 	if friendApply.ID == 0 {
+		return errors.New(resp.FRIEND_APPLY_NOT_EXISTS)
+	}
+	if friendApply.Status != models.ApplyStatusWait {
 		return errors.New(resp.FRIEND_APPLY_NOT_EXISTS)
 	}
 
@@ -145,16 +136,19 @@ func (s *Service) AddFriendReply(
 			return err
 		}
 
-		if req.Status == models.FriendApplyStatusPass {
+		if req.Status == models.ApplyStatusPass {
+			friend1 := &models.Friend{}
 			if err := db.Model(&models.Friend{}).
-				Create(&models.Friend{
+				FirstOrCreate(friend1, &models.Friend{
 					AccountId: req.ToID,
 					FriendId:  accountId,
 				}).Error; err != nil {
 				return err
 			}
+
+			friend2 := &models.Friend{}
 			if err := db.Model(&models.Friend{}).
-				Create(&models.Friend{
+				FirstOrCreate(friend2, &models.Friend{
 					AccountId: accountId,
 					FriendId:  req.ToID,
 				}).Error; err != nil {
@@ -176,11 +170,11 @@ func (s *Service) FriendApplyList(
 	ctx context.Context,
 	accountId uint,
 ) ([]*models.FriendApply, error) {
+	db := s.mysqlClient.Db()
 	friendApplies := make([]*models.FriendApply, 0)
-	err := s.mysqlClient.Db().
-		Model(&models.FriendApply{}).
+	err := db.Model(&models.FriendApply{}).
 		Where("to_account_id = ?", accountId).
-		Where("status = ?", models.FriendApplyStatusWait).
+		Where("status = ?", models.ApplyStatusWait).
 		Order("id desc").
 		Preload("FromAccount").
 		Find(&friendApplies).Error
@@ -206,9 +200,9 @@ func (s *Service) FriendList(
 	accountId uint,
 	req *models.FriendListReq,
 ) ([]*models.Friend, error) {
+	db := s.mysqlClient.Db()
 	friends := make([]*models.Friend, 0)
-	err := s.mysqlClient.Db().
-		Model(&models.Friend{}).
+	err := db.Model(&models.Friend{}).
 		Where("account_id = ?", accountId).
 		Where("blacklist = ?", req.BlackList).
 		Preload("Account").
@@ -241,9 +235,9 @@ func (s *Service) FriendInfo(
 	accountId uint,
 	req *models.ToIDReq,
 ) (*models.Friend, error) {
+	db := s.mysqlClient.Db()
 	friend := &models.Friend{}
-	err := s.mysqlClient.Db().
-		Model(&models.Friend{}).
+	err := db.Model(&models.Friend{}).
 		Where("account_id = ?", accountId).
 		Where("friend_id = ?", req.ToID).
 		Preload("Account").
@@ -278,7 +272,6 @@ func (s *Service) DeleteFriend(
 	req *models.ToIDReq,
 ) error {
 	db := s.mysqlClient.Db()
-
 	friend := &models.Friend{}
 	err := db.Model(&models.Friend{}).
 		Where("account_id = ?", accountId).
@@ -308,7 +301,6 @@ func (s *Service) AddBlacklist(
 	req *models.ToIDReq,
 ) error {
 	db := s.mysqlClient.Db()
-
 	friend := &models.Friend{}
 	err := db.Model(&models.Friend{}).
 		Where("account_id = ?", accountId).
@@ -348,7 +340,6 @@ func (s *Service) DeleteBlacklist(
 	req *models.ToIDReq,
 ) error {
 	db := s.mysqlClient.Db()
-
 	friend := &models.Friend{}
 	err := db.Model(&models.Friend{}).
 		Where("account_id = ?", accountId).
@@ -379,7 +370,6 @@ func (s *Service) SetFriendRemark(
 	req *models.SetFriendRemarkReq,
 ) error {
 	db := s.mysqlClient.Db()
-
 	friend := &models.Friend{}
 	err := db.Model(&models.Friend{}).
 		Where("account_id = ?", accountId).
@@ -412,7 +402,6 @@ func (s *Service) SetFriendLabel(
 	req *models.SetFriendLabelReq,
 ) error {
 	db := s.mysqlClient.Db()
-
 	friend := &models.Friend{}
 	err := db.Model(&models.Friend{}).
 		Where("account_id = ?", accountId).
@@ -445,7 +434,6 @@ func (s *Service) CreateFriendGroup(
 	req *models.CreateFriendGroupReq,
 ) error {
 	db := s.mysqlClient.Db()
-
 	tempFG := &models.FriendGroup{}
 	err := db.Model(&models.FriendGroup{}).
 		Where("account_id = ?", accountId).
@@ -489,7 +477,6 @@ func (s *Service) DeleteFriendGroup(
 	req *models.FriendGroupReq,
 ) error {
 	db := s.mysqlClient.Db()
-
 	friendGroup := &models.FriendGroup{}
 	err := db.Model(&models.FriendGroup{}).
 		Where("id = ?", req.GroupId).
@@ -521,7 +508,6 @@ func (s *Service) OperateFriendGroupMembers(
 	operate string,
 ) error {
 	db := s.mysqlClient.Db()
-
 	friendGroup := &models.FriendGroup{}
 	err := db.Model(&models.FriendGroup{}).
 		Where("id = ?", req.GroupId).
@@ -565,7 +551,6 @@ func (s *Service) GetFriendGroups(
 	accountId uint,
 ) ([]*models.FriendGroup, error) {
 	db := s.mysqlClient.Db()
-
 	friendGroups := make([]*models.FriendGroup, 0)
 	err := db.Model(&models.FriendGroup{}).
 		Where("account_id = ?", accountId).
@@ -600,7 +585,6 @@ func (s *Service) GetFriendGroup(
 	req *models.FriendGroupReq,
 ) (*models.FriendGroup, error) {
 	db := s.mysqlClient.Db()
-
 	friendGroup := &models.FriendGroup{}
 	err := db.Model(&models.FriendGroup{}).
 		Where("id = ?", req.GroupId).
@@ -637,7 +621,6 @@ func (s *Service) RenameFriendGroup(
 	req *models.RenameFriendGroupReq,
 ) error {
 	db := s.mysqlClient.Db()
-
 	friendGroup := &models.FriendGroup{}
 	err := db.Model(&models.FriendGroup{}).
 		Where("id <> ?", req.GroupId).
@@ -670,11 +653,11 @@ func (s *Service) VerifyFriend(
 	accountId uint,
 	req *models.ToIDReq,
 ) (*models.VerifyFriendRes, error) {
+	db := s.mysqlClient.Db()
 	res := &models.VerifyFriendRes{}
 
 	friend := &models.Friend{}
-	err := s.mysqlClient.Db().
-		Model(&models.Friend{}).
+	err := db.Model(&models.Friend{}).
 		Where("account_id = ?", req.ToID).
 		Where("friend_id = ?", accountId).
 		First(friend).Error

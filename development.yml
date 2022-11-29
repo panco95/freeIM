@@ -6,7 +6,7 @@ rpc:
 
 mysql:
   logLevel: 0
-  addr: root:password@tcp(127.0.0.1:3306)/im?charset=utf8mb4&parseTime=True&loc=Local
+  addr: root:Panco0825...@tcp(127.0.0.1:3306)/im?charset=utf8mb4&parseTime=True&loc=Local
   maxIdleConns: 10
   maxOpenConns: 100
   connMaxLifetime: "1h"
@@ -19,8 +19,8 @@ redis:
 email:
   addr: smtp.qq.com:25
   identity:
-  username: 
-  password: 
+  username: 1129443982@qq.com
+  password: zhckeddmgjdlgjbb
   host: smtp.qq.com
 
 aliyun:
@@ -32,8 +32,8 @@ aliyun:
     templateCode:
 
 smsbao:
-  username: 
-  password: 
+  username: a97392828
+  password: 0c3b7189bb23477db90f6fa5352e7221
   sendRange: local
 
 config:
@@ -42,3 +42,8 @@ config:
 etcd:
   addrs:
     - 192.168.115.137:2379
+
+qiniu:
+  ak: U7nSFEZVJ7gnNNqTrsvN5BeRzDrbQMTlHChzCybC
+  sk: H289Jm953amJmDuFvXTeU6jz2zCmfztlDoLRSyMH
+  bucket: freeim

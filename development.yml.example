@@ -42,3 +42,8 @@ config:
 etcd:
   addrs:
     - 192.168.115.137:2379
+
+qiniu:
+  ak: U7nSFEZVJ7gnNNqTrsvN5BeRzDrbQMTlHChzCybC
+  sk: H289Jm953amJmDuFvXTeU6jz2zCmfztlDoLRSyMH
+  bucket: freeim

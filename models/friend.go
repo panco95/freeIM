@@ -23,25 +23,25 @@ type FriendGroup struct {
 	Order     uint      `gorm:"column:order;not null;default:0;" json:"-"`                                                 //排序
 }
 
-type FriendApplyStatus string
+type ApplyStatus string
 
 var (
-	FriendApplyStatusWait FriendApplyStatus = "wait" //等待验证
-	FriendApplyStatusPass FriendApplyStatus = "pass" //已通过
-	FriendApplyStatusDeny FriendApplyStatus = "deny" //已拒绝
+	ApplyStatusWait ApplyStatus = "wait" //等待验证
+	ApplyStatusPass ApplyStatus = "pass" //已通过
+	ApplyStatusDeny ApplyStatus = "deny" //已拒绝
 )
 
 // 好友申请表
 type FriendApply struct {
 	Model
-	FromAccountId uint              `gorm:"column:from_account_id;not null;default:0;index:from_account_id;" json:"-"` //发起请求账号id
-	FromAccount   *Account          `gorm:"foreignKey:FromAccountId" json:"fromAccount,omitempty"`
-	ToAccountId   uint              `gorm:"column:to_account_id;not null;default:0;index:to_account_id;" json:"-"` //接受i请求账号id
-	ToAccount     *Account          `gorm:"foreignKey:ToAccountId" json:"toAccount,omitempty"`
-	ApplyReason   string            `gorm:"column:apply_reason;not null;default:'';type:varchar(100);" json:"applyReason"` //申请理由
-	DenyReason    string            `gorm:"column:deny_reason;not null;default:'';type:varchar(100);" json:"denyReason"`   //拒绝原因
-	Status        FriendApplyStatus `gorm:"column:status;not null;default:'wait';type:varchar(10);" json:"status"`         //申请状态
-	Replytime     *time.Time        `gorm:"column:reply_time;" json:"replyTime"`                                           //回复时间
+	FromAccountId uint        `gorm:"column:from_account_id;not null;default:0;index:from_account_id;" json:"-"` //发起请求账号id
+	FromAccount   *Account    `gorm:"foreignKey:FromAccountId" json:"fromAccount,omitempty"`
+	ToAccountId   uint        `gorm:"column:to_account_id;not null;default:0;index:to_account_id;" json:"-"` //接受i请求账号id
+	ToAccount     *Account    `gorm:"foreignKey:ToAccountId" json:"toAccount,omitempty"`
+	ApplyReason   string      `gorm:"column:apply_reason;not null;default:'';type:varchar(100);" json:"applyReason"` //申请理由
+	DenyReason    string      `gorm:"column:deny_reason;not null;default:'';type:varchar(100);" json:"denyReason"`   //拒绝原因
+	Status        ApplyStatus `gorm:"column:status;not null;default:'wait';type:varchar(10);" json:"status"`         //申请状态
+	Replytime     *time.Time  `gorm:"column:reply_time;" json:"replyTime"`                                           //回复时间
 }
 
 type SearchFriendReq struct {
@@ -55,8 +55,8 @@ type AddFriendReq struct {
 
 type AddFriendReplyReq struct {
 	ToIDReq
-	Status FriendApplyStatus `form:"status" binding:"required,oneof=pass deny"`
-	Reason string            `form:"reason"`
+	Status ApplyStatus `form:"status" binding:"required,oneof=pass deny"`
+	Reason string      `form:"reason"`
 }
 
 type FriendListReq struct {

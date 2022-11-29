@@ -1,17 +1,18 @@
 package cmd
 
 import (
-	"im/pkg/aliyun"
 	"im/pkg/database"
 	"im/pkg/email"
 	"im/pkg/etcd"
 	"im/pkg/gin/middlewares"
 	"im/pkg/jwt"
+	"im/pkg/qiniu"
 	"im/pkg/sms"
 	"im/pkg/tracing"
 	"im/pkg/utils"
 	"im/services/account"
 	"im/services/chat"
+	"im/services/chatgroup"
 	"im/services/friend"
 	"im/services/system"
 	"im/services/system/config"
@@ -32,8 +33,8 @@ type Packages struct {
 	redSyncClient *redsync.Redsync
 	etcdClient    *etcd.Etcd
 	emailClient   *email.Mail
-	aliyunClient  *aliyun.Aliyun
 	smsClient     sms.Sms
+	qiniuClient   *qiniu.Qiniu
 	prom          *middlewares.Prometheus
 	tracing       *tracing.TracingService
 	jwt           *jwt.Jwt
@@ -155,14 +156,29 @@ func NewPackages(serverID string) (pkgs *Packages) {
 	// 	pkgs.etcdClient = etcdClient
 	// }
 
+	{
+		viper.SetDefault("qiniu.ak", "")
+		viper.SetDefault("qiniu.sk", "")
+		viper.SetDefault("qiniu.bucket", "")
+		viper.SetDefault("qiniu.tokenExpireSec", 3600)
+		qiniuClient := qiniu.New(
+			viper.GetString("qiniu.ak"),
+			viper.GetString("qiniu.sk"),
+			viper.GetString("qiniu.bucket"),
+			viper.GetUint64("qiniu.tokenExpireSec"),
+		)
+		pkgs.qiniuClient = qiniuClient
+	}
+
 	return
 }
 
 type Services struct {
-	accountSvc *account.Service
-	friendSvc  *friend.Service
-	chatSvc    *chat.Service
-	systemSvc  *system.Service
+	accountSvc   *account.Service
+	friendSvc    *friend.Service
+	chatGroupSvc *chatgroup.Service
+	chatSvc      *chat.Service
+	systemSvc    *system.Service
 }
 
 func NewServices(pkgs *Packages) *Services {
@@ -171,13 +187,13 @@ func NewServices(pkgs *Packages) *Services {
 	systemSvc := system.NewService(
 		config,
 		pkgs.mysqlClient,
+		pkgs.qiniuClient,
 	)
 
 	viper.SetDefault("login.rsaPrivateKey", utils.DefaultRSAPrivateKey)
 	viper.SetDefault("login.rsaPublicKey", utils.DefaultRSAPublicKey)
 	accountSvc := account.NewService(
 		pkgs.mysqlClient,
-		pkgs.redisClient,
 		pkgs.cacheClient,
 		pkgs.emailClient,
 		pkgs.smsClient,
@@ -185,31 +201,37 @@ func NewServices(pkgs *Packages) *Services {
 		config,
 	)
 
-	chatSvc := chat.NewService(
-		pkgs.mysqlClient,
-		pkgs.redisClient,
-		config,
-		pkgs.jwt,
-	)
-
 	friendSvc := friend.NewService(
 		pkgs.mysqlClient,
 		config,
 	)
 
+	chatGroupSvc := chatgroup.NewService(
+		pkgs.mysqlClient,
+		config,
+	)
+
+	chatSvc := chat.NewService(
+		pkgs.mysqlClient,
+		config,
+		chatGroupSvc,
+	)
+
 	return &Services{
-		accountSvc: accountSvc,
-		systemSvc:  systemSvc,
-		chatSvc:    chatSvc,
-		friendSvc:  friendSvc,
+		accountSvc:   accountSvc,
+		systemSvc:    systemSvc,
+		chatSvc:      chatSvc,
+		friendSvc:    friendSvc,
+		chatGroupSvc: chatGroupSvc,
 	}
 }
 
 type GinControllers struct {
-	accountCtrl *account.GinController
-	friendCtrl  *friend.GinController
-	chatCtrl    *chat.GinController
-	systemCtrl  *system.GinController
+	accountCtrl   *account.GinController
+	friendCtrl    *friend.GinController
+	chatGroupCtrl *chatgroup.GinController
+	chatCtrl      *chat.GinController
+	systemCtrl    *system.GinController
 }
 
 func NewGinControllers(pkgs *Packages, svcs *Services) *GinControllers {
@@ -220,6 +242,10 @@ func NewGinControllers(pkgs *Packages, svcs *Services) *GinControllers {
 		),
 		friendCtrl: friend.NewGinController(
 			svcs.friendSvc,
+			svcs.systemSvc,
+		),
+		chatGroupCtrl: chatgroup.NewGinController(
+			svcs.chatGroupSvc,
 			svcs.systemSvc,
 		),
 		chatCtrl: chat.NewGinController(

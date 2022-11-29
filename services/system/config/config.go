@@ -4,6 +4,7 @@ import (
 	"context"
 	"im/models"
 	"im/pkg/database"
+	"strconv"
 	"sync"
 	"time"
 
@@ -41,7 +42,7 @@ func (c *Config) AutoRefresh(interval time.Duration) {
 }
 
 func (c *Config) RefreshConfigs(ctx context.Context) error {
-	cfgs, err := models.Config{}.GetAll(ctx, c.mysqlClient.Db())
+	cfgs, err := c.SelectAll(ctx)
 	if err != nil {
 		c.log.Errorf("RefreshConfigs %v", err)
 		return err
@@ -55,6 +56,16 @@ func (c *Config) RefreshConfigs(ctx context.Context) error {
 	c.SetAll(m)
 
 	return nil
+}
+
+func (c *Config) SelectAll(ctx context.Context) ([]*models.Config, error) {
+	db := c.mysqlClient.Db()
+	cfgs := make([]*models.Config, 0)
+	err := db.Model(&Config{}).
+		Order("id asc").
+		Find(&cfgs).
+		Error
+	return cfgs, err
 }
 
 func (c *Config) GetAll() map[string]string {
@@ -79,6 +90,22 @@ func (c *Config) Get(key string) string {
 
 	if v, ok := c.mapping[key]; ok {
 		t = v
+	}
+
+	return t
+}
+
+func (c *Config) GetInt(key string) int {
+	t := 0
+	c.mappingLocker.RLock()
+	defer c.mappingLocker.RUnlock()
+
+	if v, ok := c.mapping[key]; ok {
+		t1 := v
+		t2, err := strconv.Atoi(t1)
+		if err == nil {
+			t = t2
+		}
 	}
 
 	return t

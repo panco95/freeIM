@@ -54,6 +54,9 @@ var serverCmd = &cobra.Command{
 			&models.Friend{},
 			&models.FriendApply{},
 			&models.FriendGroup{},
+			&models.ChatGroup{},
+			&models.ChatGroupMember{},
+			&models.ChatGroupJoin{},
 			&models.OperateLogs{},
 		); err != nil {
 			log.Fatalf("Mysql AutoMigrate %v", err)
@@ -174,10 +177,12 @@ func GetGinPublicEngine(ctrls *GinControllers, pkgs *Packages) (*gin.Engine, err
 	reset.POST("password/mobile", ctrls.accountCtrl.MobileResetPassword)
 
 	api.Use(middlewares.NewJwtCheckMiddleware(pkgs.jwt, pkgs.mysqlClient, pkgs.cacheClient))
-	api.GET("ws", ctrls.chatCtrl.ConnectWebsocket)
+	api.GET("ws", ctrls.chatCtrl.ConnectWebsocket)                      //连接webscket
+	api.GET("upload/qiniu/token", ctrls.systemCtrl.GetQiniuUploadToken) //获取七牛云上传Token
 
-	api.GET("me/info", ctrls.accountCtrl.Info)
-	api.PUT("me/update/password", ctrls.accountCtrl.UpdatePassword)
+	api.GET("me/info", ctrls.accountCtrl.Info)                      //个人信息
+	api.PUT("me/update/password", ctrls.accountCtrl.UpdatePassword) //修改密码
+	api.PUT("me/update/info", ctrls.accountCtrl.UpdateAccountInfo)  //更新个人信息
 
 	api.GET("friends/search", ctrls.friendCtrl.SearchFriend)                     //查找用户
 	api.POST("friends/add", ctrls.friendCtrl.AddFriend)                          //添加好友
@@ -198,6 +203,24 @@ func GetGinPublicEngine(ctrls *GinControllers, pkgs *Packages) (*gin.Engine, err
 	api.GET("friends/groups", ctrls.friendCtrl.GetFriendGroups)                  //获取好友分组列表
 	api.GET("friends/group", ctrls.friendCtrl.GetFriendGroup)                    //获取指定好友分组
 	api.PUT("friends/groups/name", ctrls.friendCtrl.RenameFriendGroup)           //重命名好友分组
+
+	api.POST("chatGroups/search", ctrls.chatGroupCtrl.SearchChatGroup)        //搜索群聊
+	api.POST("chatGroups", ctrls.chatGroupCtrl.CreateChatGroup)               //创建群聊
+	api.PUT("chatGroups", ctrls.chatGroupCtrl.EditChatGroup)                  //修改群聊资料
+	api.POST("chatGroups/join", ctrls.chatGroupCtrl.JoinChatGroup)            //加群申请
+	api.POST("chatGroups/join/reply", ctrls.chatGroupCtrl.JoinChatGroupReply) //加群审批
+	api.GET("chatGroups/join", ctrls.chatGroupCtrl.JoinChatGroupList)         //加群审批列表
+	api.GET("chatGroups", ctrls.chatGroupCtrl.ChatGroupList)                  //我的群聊列表
+	api.GET("chatGroups/info", ctrls.chatGroupCtrl.ChatGroupInfo)             //群聊信息(包括成员)
+	api.POST("chatGroups/dissolve", ctrls.chatGroupCtrl.DissolveChatGroup)    //解散群聊
+	api.POST("chatGroups/exit", ctrls.chatGroupCtrl.ExitChatGroup)            //退出群聊
+	api.POST("chatGroups/transfer", ctrls.chatGroupCtrl.TransferChatGroup)    //转让群聊
+	api.POST("chatGroups/kick", ctrls.chatGroupCtrl.ChatGroupKickMember)      //踢出群员
+	api.POST("chatGroups/manager", ctrls.chatGroupCtrl.ChatGroupSetManager)   //设置管理员
+	api.POST("chatGroups/banned", ctrls.chatGroupCtrl.ChatGroupBannedMember)  //成员禁言
+
+	api.POST("chat/send", ctrls.chatCtrl.SendMessage)             //发送消息
+	api.POST("chat/revocation", ctrls.chatCtrl.RevocationMessage) //撤回消息
 
 	return router, nil
 }

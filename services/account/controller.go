@@ -264,3 +264,26 @@ func (ctrl *GinController) UpdatePassword(c *gin.Context) {
 
 	c.JSON(http.StatusOK, &resp.Response{Message: resp.SETTING_SUCCESS})
 }
+
+// 更新用户信息
+func (ctrl *GinController) UpdateAccountInfo(c *gin.Context) {
+	req := &models.UpdateAccountInfoReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	err := ctrl.AccountSvc.UpdateAccountInfo(
+		c.Request.Context(),
+		c.GetUint("id"),
+		req,
+	)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Message: resp.SETTING_SUCCESS})
+}

@@ -18,7 +18,6 @@ import (
 
 	"github.com/afocus/captcha"
 	redisCache "github.com/go-redis/cache/v8"
-	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -26,7 +25,6 @@ import (
 type Service struct {
 	log         *zap.SugaredLogger
 	mysqlClient *database.Client
-	redisClient *redis.Client
 	cacheClient *redisCache.Cache
 	emailClient *email.Mail
 	smsClient   sms.Sms
@@ -36,7 +34,6 @@ type Service struct {
 
 func NewService(
 	mysqlClient *database.Client,
-	redisClient *redis.Client,
 	cacheClient *redisCache.Cache,
 	emailClient *email.Mail,
 	smsClient sms.Sms,
@@ -46,13 +43,33 @@ func NewService(
 	return &Service{
 		log:         zap.S().With("module", "services.account.service"),
 		mysqlClient: mysqlClient,
-		redisClient: redisClient,
 		cacheClient: cacheClient,
 		emailClient: emailClient,
 		smsClient:   smsClient,
 		jwt:         jwt,
 		config:      config,
 	}
+}
+
+// 查询账号
+func (s *Service) QueryAccount(
+	ctx context.Context,
+	account *models.Account,
+) (*models.Account, error) {
+	db := s.mysqlClient.Db()
+	queryAccount := &models.Account{}
+	err := db.
+		Where("(id <> 0 AND id = ?) OR (username <> '' AND username = ?) OR (email <> '' AND email = ?) OR (mobile <> '' AND mobile = ?)",
+			account.ID,
+			account.Username,
+			account.Email,
+			account.Mobile,
+		).
+		First(queryAccount).Error
+	if err != nil {
+		return nil, err
+	}
+	return queryAccount, nil
 }
 
 // 获取图片验证码
@@ -132,6 +149,7 @@ func (s *Service) BasicLogin(
 	req *models.LoginOrRegisterReq,
 	ip string,
 ) (string, *models.Account, error) {
+	db := s.mysqlClient.Db()
 	if s.config.Get("login_captcha") == "true" {
 		err := s.CheckCaptcha(ctx, req.CaptchaKey, req.Captcha, models.CaptchaTypeLogin)
 		if err != nil {
@@ -139,8 +157,7 @@ func (s *Service) BasicLogin(
 		}
 	}
 
-	account := &models.Account{}
-	err := account.Query(ctx, s.mysqlClient.Db(), &models.Account{
+	account, err := s.QueryAccount(ctx, &models.Account{
 		Username: req.Account,
 		Email:    req.Account,
 		Mobile:   req.Account,
@@ -169,8 +186,7 @@ func (s *Service) BasicLogin(
 
 	go func() {
 		now := time.Now()
-		err = s.mysqlClient.Db().
-			Model(&account).
+		err = db.Model(&account).
 			Updates(models.Account{
 				LastLoginTime: &now,
 				LastLoginIp:   ip,
@@ -191,6 +207,7 @@ func (s *Service) BasicRegister(
 	req *models.LoginOrRegisterReq,
 	ip string,
 ) (string, *models.Account, error) {
+	db := s.mysqlClient.Db()
 	if s.config.Get("login_captcha") == "true" {
 		err := s.CheckCaptcha(ctx, req.CaptchaKey, req.Captcha, models.CaptchaTypeRegister)
 		if err != nil {
@@ -202,8 +219,7 @@ func (s *Service) BasicRegister(
 	}
 
 	exists := &models.Account{}
-	err := s.mysqlClient.Db().
-		Model(&models.Account{}).
+	err := db.Model(&models.Account{}).
 		Where("username = ?", req.Account).
 		First(exists).Error
 	if err != nil {
@@ -216,15 +232,14 @@ func (s *Service) BasicRegister(
 	now := time.Now()
 	account := &models.Account{}
 	account.Username = req.Account
-	account.Nikcname = req.Account
+	account.Nickname = req.Account
 	account.LastLoginTime = &now
 	account.LoginTimes = 1
 	account.PasswordSalt = utils.RandStr(6)
 	account.Password = utils.Md5(utils.Md5(req.Password) + account.PasswordSalt)
 	account.LastLoginIp = ip
 
-	err = s.mysqlClient.Db().
-		Model(&models.Account{}).
+	err = db.Model(&models.Account{}).
 		Create(account).Error
 	if err != nil {
 		return "", nil, err
@@ -282,21 +297,22 @@ func (s *Service) EmailOrMobileLogin(
 	account *models.Account,
 	ip string,
 ) (string, bool, error) {
+	db := s.mysqlClient.Db()
 	captchatKey := ""
 	switch captchaType {
 	case models.CaptchaTypeEmail:
 		captchatKey = account.Email
-		account.Nikcname = account.Email
+		account.Nickname = account.Email
 	case models.CaptchaTypeMobile:
 		captchatKey = account.Mobile
-		account.Nikcname = account.Mobile
+		account.Nickname = account.Mobile
 	}
 	err := s.CheckCaptcha(ctx, captchatKey, captcha, captchaType)
 	if err != nil {
 		return "", false, err
 	}
 
-	err = account.Query(ctx, s.mysqlClient.Db(), account)
+	account, err = s.QueryAccount(ctx, account)
 	if err != nil {
 		return "", false, err
 	}
@@ -319,8 +335,7 @@ func (s *Service) EmailOrMobileLogin(
 
 	go func() {
 		now := time.Now()
-		err = s.mysqlClient.Db().
-			Model(&models.Account{}).
+		err = db.Model(&models.Account{}).
 			Where("id = ?", account.ID).
 			Updates(models.Account{
 				LastLoginTime: &now,
@@ -346,13 +361,13 @@ func (s *Service) AutoRegister(
 	ctx context.Context,
 	account *models.Account,
 ) (string, bool, error) {
+	db := s.mysqlClient.Db()
 	now := time.Now()
 	account.LastLoginTime = &now
 	account.LoginTimes = 1
 	account.Username = account.Email + account.Mobile
 
-	err := s.mysqlClient.Db().
-		Model(&models.Account{}).
+	err := db.Model(&models.Account{}).
 		Create(account).Error
 	if err != nil {
 		return "", false, err
@@ -378,6 +393,7 @@ func (s *Service) EmailOrMobileResetPassword(
 	account *models.Account,
 	password string,
 ) error {
+	db := s.mysqlClient.Db()
 	captchatKey := ""
 	switch captchaType {
 	case models.CaptchaTypeEmail:
@@ -390,7 +406,7 @@ func (s *Service) EmailOrMobileResetPassword(
 		return err
 	}
 
-	err = account.Query(ctx, s.mysqlClient.Db(), account)
+	account, err = s.QueryAccount(ctx, account)
 	if err != nil {
 		return err
 	}
@@ -401,8 +417,7 @@ func (s *Service) EmailOrMobileResetPassword(
 	account.Password = password
 	account.PasswordSalt = utils.RandStr(6)
 	account.Password = utils.Md5(utils.Md5(account.Password) + account.PasswordSalt)
-	err = s.mysqlClient.Db().
-		Model(&models.Account{}).
+	err = db.Model(&models.Account{}).
 		Where("id = ?", account.ID).
 		Updates(models.Account{
 			Password:     account.Password,
@@ -421,8 +436,7 @@ func (s *Service) Info(
 	ctx context.Context,
 	accountId uint,
 ) (*models.InfoRes, error) {
-	account := &models.Account{}
-	err := account.Query(ctx, s.mysqlClient.Db(), &models.Account{
+	account, err := s.QueryAccount(ctx, &models.Account{
 		Model: models.Model{ID: accountId},
 	})
 	if err != nil {
@@ -444,10 +458,10 @@ func (s *Service) UpdatePassword(
 	accountId uint,
 	password string,
 ) error {
+	db := s.mysqlClient.Db()
 	newPasswordSalt := utils.RandStr(6)
 	newPassword := utils.Md5(utils.Md5(password) + newPasswordSalt)
-	err := s.mysqlClient.Db().
-		Model(&models.Account{}).
+	err := db.Model(&models.Account{}).
 		Where("id = ?", accountId).
 		Updates(models.Account{
 			Password:     newPassword,
@@ -455,6 +469,27 @@ func (s *Service) UpdatePassword(
 		}).Error
 	if err != nil {
 		s.log.Errorf("UpdatePassword %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// 设置密码
+func (s *Service) UpdateAccountInfo(
+	ctx context.Context,
+	accountId uint,
+	req *models.UpdateAccountInfoReq,
+) error {
+	db := s.mysqlClient.Db()
+	err := db.Model(&models.Account{}).
+		Where("id = ?", accountId).
+		Updates(models.Account{
+			Nickname: req.Nickname,
+			Avatar:   req.Avatar,
+		}).Error
+	if err != nil {
+		s.log.Errorf("UpdateAccountInfo update %v", err)
 		return err
 	}
 

@@ -1,18 +1,16 @@
 package models
 
 import (
-	"context"
 	"time"
-
-	"gorm.io/gorm"
 )
 
+// 账号表
 type Account struct {
 	Model
 	Username      string        `gorm:"column:username;not null;default:'';type:varchar(50);index:username" json:"username"` //用户名
 	Email         string        `gorm:"column:email;not null;default:'';type:varchar(100)" json:"email"`                     //邮箱地址
 	Mobile        string        `gorm:"column:mobile;not null;default:'';type:varchar(50)" json:"mobile"`                    //手机号
-	Nikcname      string        `gorm:"column:nickname;not null;default:'';type:varchar(50)" json:"nickname"`                //昵称
+	Nickname      string        `gorm:"column:nickname;not null;default:'';type:varchar(50)" json:"nickname"`                //昵称
 	Avatar        string        `gorm:"column:avatar;not null;default:'';type:varchar(500)" json:"avatar"`                   //头像
 	Gender        string        `gorm:"column:gender;not null;default:'';type:varchar(10)" json:"gender"`                    //性别
 	Birth         string        `gorm:"column:birth;default:null;type:varchar(100)" json:"birth"`                            //生日
@@ -118,21 +116,7 @@ type UpdatePasswordReq struct {
 	Password string `form:"password" binding:"required"`
 }
 
-func (a *Account) Query(
-	ctx context.Context,
-	db *gorm.DB,
-	account *Account,
-) error {
-	result := db.
-		Where("(id <> 0 AND id = ?) OR (username <> '' AND username = ?) OR (email <> '' AND email = ?) OR (mobile <> '' AND mobile = ?)",
-			account.ID,
-			account.Username,
-			account.Email,
-			account.Mobile,
-		).
-		First(a)
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
+type UpdateAccountInfoReq struct {
+	Avatar   string `form:"avatar"`
+	Nickname string `form:"nickname"`
 }
