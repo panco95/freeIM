@@ -6,7 +6,7 @@ rpc:
 
 mysql:
   logLevel: 0
-  addr: root:password@tcp(127.0.0.1:3306)/im?charset=utf8mb4&parseTime=True&loc=Local
+  addr: root:password@tcp(127.0.0.1:3306)/freeim?charset=utf8mb4&parseTime=True&loc=Local
   maxIdleConns: 10
   maxOpenConns: 100
   connMaxLifetime: "1h"
@@ -44,6 +44,6 @@ etcd:
     - 192.168.115.137:2379
 
 qiniu:
-  ak: U7nSFEZVJ7gnNNqTrsvN5BeRzDrbQMTlHChzCybC
-  sk: H289Jm953amJmDuFvXTeU6jz2zCmfztlDoLRSyMH
+  ak: 
+  sk: 
   bucket: freeim

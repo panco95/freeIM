@@ -16,7 +16,13 @@ A free open source im server used by golang.
 - [ ] Multiple message types
 - [ ] Multiple platform client
 
-## How to use
+## Run
+
+cp development.yml.example development.yml
+
+go run main.go server
+
+## Build
 
 make build
 
