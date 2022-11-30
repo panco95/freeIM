@@ -57,6 +57,7 @@ var serverCmd = &cobra.Command{
 			&models.ChatGroup{},
 			&models.ChatGroupMember{},
 			&models.ChatGroupJoin{},
+			&models.Message{},
 			&models.OperateLogs{},
 		); err != nil {
 			log.Fatalf("Mysql AutoMigrate %v", err)

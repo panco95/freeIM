@@ -62,7 +62,7 @@ func (h *ErrorHandler) HandleErrors(c *gin.Context) {
 		c.JSON(http.StatusOK, resp.Response{
 			Code:    1,
 			Message: resp.PARAM_INVALID,
-			Result:  errorToPrint.Error(),
+			Result:  gin.H{"info": errorToPrint.Error()},
 		})
 		return
 	}
@@ -75,7 +75,7 @@ func (h *ErrorHandler) HandleErrors(c *gin.Context) {
 		data := resp.Response{
 			Code:    1,
 			Message: msg,
-			Result:  msg,
+			Result:  gin.H{},
 		}
 		// if t, ok := errorToPrint.Err.(errors.DetailGetter); ok {
 		// 	data["details"] = t.Details()
@@ -94,6 +94,6 @@ func (h *ErrorHandler) HandleErrors(c *gin.Context) {
 	c.JSON(http.StatusOK, resp.Response{
 		Code:    1,
 		Message: errorToPrint.Error(),
-		Result:  errorToPrint.Error(),
+		Result:  gin.H{},
 	})
 }

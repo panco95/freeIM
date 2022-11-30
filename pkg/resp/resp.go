@@ -40,6 +40,9 @@ const (
 	CHAT_GROUP_NOT_ALLOW         = "不允许踢出群主或管理员"
 	CHAT_GROUP_MEMBER_NOT_EXISTS = "成员不在本群聊"
 
+	MESSAGE_NOT_YOUR        = "只能撤回自己的消息"
+	MESSAGE_CANT_REVOCATION = "超过2分钟消息无法撤回"
+
 	SUCCESS          = "成功"
 	REGISTER_SUCCESS = "注册成功"
 	LOGIN_SUCCESS    = "登陆成功"

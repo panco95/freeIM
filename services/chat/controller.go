@@ -34,7 +34,7 @@ func (ctrl *GinController) SendMessage(c *gin.Context) {
 		return
 	}
 
-	err := ctrl.ChatSvc.SendMessage(
+	res, err := ctrl.ChatSvc.SendMessage(
 		c.Request.Context(),
 		c.GetUint("id"),
 		req,
@@ -45,7 +45,10 @@ func (ctrl *GinController) SendMessage(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &resp.Response{Message: resp.SEND_SUCCESS})
+	c.JSON(http.StatusOK, &resp.Response{
+		Result:  res,
+		Message: resp.SEND_SUCCESS,
+	})
 }
 
 // 撤回消息

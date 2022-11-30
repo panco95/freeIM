@@ -2,13 +2,15 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"im/models"
 	"im/pkg/database"
+	"im/pkg/resp"
 	"im/services/chatgroup"
 	"im/services/system/config"
 	"sync"
+	"time"
 
-	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -46,17 +48,24 @@ func (s *Service) SendMessage(
 	ctx context.Context,
 	accountId uint,
 	req *models.SendMessageReq,
-) error {
-	msg := &Message{
-		Id:     uuid.New().String(),
-		FromId: accountId,
-		ToId:   req.ToID,
-		Ope:    req.Ope,
-		Type:   req.Type,
-		Body:   req.Body,
+) (*models.Message, error) {
+	db := s.mysqlClient.Db()
+	message := &models.Message{
+		FromId:    accountId,
+		ToId:      req.ToID,
+		Ope:       req.Ope,
+		Type:      req.Type,
+		Body:      req.Body,
+		IsPrivate: req.IsPrivate,
+		Status:    models.MessageStatusNormal,
 	}
-	s.Send(ctx, msg)
-	return nil
+	err := db.Create(message).Error
+	if err != nil {
+		return nil, err
+	}
+
+	s.Send(ctx, message)
+	return message, nil
 }
 
 // 撤回消息
@@ -65,13 +74,34 @@ func (s *Service) RevocationMessage(
 	accountId uint,
 	req *models.RevocationMessageReq,
 ) error {
-	msg := &Message{
-		Id:     req.MessageId,
-		FromId: accountId,
-		ToId:   req.ToID,
-		Ope:    req.Ope,
-		Type:   TypeRevocation,
+	db := s.mysqlClient.Db()
+	message := &models.Message{}
+	err := db.Model(&models.Message{}).
+		Where("id = ?", req.Id).
+		First(message).Error
+	if err != nil {
+		s.log.Errorf("RevocationMessage select %v", err)
+		return err
 	}
-	s.Send(ctx, msg)
+	if message.FromId != accountId {
+		return errors.New(resp.MESSAGE_NOT_YOUR)
+	}
+	if message.CreatedAt.Unix()+120 < time.Now().Unix() {
+		return errors.New(resp.MESSAGE_CANT_REVOCATION)
+	}
+
+	message.Status = models.MessageStatusRevocation
+	s.Send(ctx, message)
+
+	go func() {
+		err := db.Model(&models.Message{}).
+			Where("id = ?", req.Id).
+			UpdateColumn("status", models.MessageStatusRevocation).
+			Error
+		if err != nil {
+			s.log.Errorf("RevocationMessage updateStatus %v", err)
+		}
+	}()
+
 	return nil
 }
