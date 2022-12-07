@@ -16,7 +16,18 @@ A free open source im server used by golang.
 - [x] Multiple message types
 - [ ] Multiple platform client
 
-## How to use
+## Need package:
+
+- mysql
+- redis
+- etcd
+- smtp
+- expansion: qiniu,smsbao
+
+## How to run
+
+go run main.go server
+
+## How to build
 
 make build
-
