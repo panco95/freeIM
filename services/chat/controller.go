@@ -2,6 +2,7 @@ package chat
 
 import (
 	"im/models"
+	"im/pkg/gin/middlewares"
 	"im/pkg/resp"
 	"im/services/system"
 	"net/http"
@@ -72,4 +73,59 @@ func (ctrl *GinController) RevocationMessage(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, &resp.Response{Message: resp.SUCCESS})
+}
+
+// 已读消息
+func (ctrl *GinController) ReadMessage(c *gin.Context) {
+	req := &models.ToIDReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	err := ctrl.ChatSvc.ReadMessage(
+		c.Request.Context(),
+		c.GetUint("id"),
+		req,
+	)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Message: resp.SUCCESS})
+}
+
+// 获取消息记录
+func (ctrl *GinController) GetMessagLogs(c *gin.Context) {
+	req := &models.ToIDReq{}
+	p, _ := c.Get("pagination")
+	page := p.(*middlewares.Pagination)
+
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	items, total, err := ctrl.ChatSvc.GetMessagLogs(
+		c.Request.Context(),
+		c.GetUint("id"),
+		req,
+		page,
+	)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	result := resp.PageResult{
+		Items: items,
+		Total: total,
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Result: result})
 }

@@ -3,7 +3,6 @@ package etcd
 import (
 	"context"
 	"im/pkg/utils"
-	"log"
 	"strings"
 	"time"
 
@@ -18,7 +17,7 @@ type Manager struct {
 	local      *node
 }
 
-func NewManager(addr string, etcd *clientV3.Client) (*Manager, error) {
+func NewManager(etcd *clientV3.Client, addr, port, etcdPrefix string) (*Manager, error) {
 	var err error
 
 	if addr == "" {
@@ -28,16 +27,19 @@ func NewManager(addr string, etcd *clientV3.Client) (*Manager, error) {
 		}
 	}
 
+	addr = addr + ":" + port
+
 	m := &Manager{
-		etcd:  etcd,
-		nodes: make([]*node, 0),
-		local: &node{addr: addr},
+		etcdPrefix: etcdPrefix,
+		etcd:       etcd,
+		nodes:      make([]*node, 0),
+		local:      &node{addr: addr},
 	}
 
 	m.nodeChan = make(chan nodeOperate)
 	go m.nodesWatch()
 
-	if err = m.nodeRegister(true); err != nil {
+	if err = m.nodeRegister(false); err != nil {
 		return nil, err
 	}
 
@@ -88,22 +90,19 @@ func (m *Manager) nodeRegister(isReconnect bool) error {
 	}
 	// monitor etcd connection
 	go func() {
-		for {
-			select {
-			case resp := <-ch:
-				if resp == nil {
-					go m.nodeRegister(false)
-					return
-				}
+		for resp := range ch {
+			if resp == nil {
+				go m.nodeRegister(true)
+				return
 			}
 		}
 	}()
 
-	if isReconnect {
+	if !isReconnect {
 		go m.serviceWatcher()
 		go func() {
 			for {
-				m.getAllServices()
+				m.GetAllServices()
 				time.Sleep(time.Second * 5)
 			}
 		}()
@@ -122,23 +121,21 @@ func (m *Manager) serviceWatcher() {
 			switch ev.Type {
 			case 0:
 				m.addNode(addr)
-				log.Printf("add %s", addr)
 			case 1:
 				m.delNode(addr)
-				log.Printf("del %s", addr)
 			}
 		}
 	}
 }
 
-func (m *Manager) getAllServices() ([]string, error) {
+func (m *Manager) GetAllServices() ([]string, error) {
 	client := m.etcd
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	resp, err := client.Get(ctx, m.etcdPrefix+"_", clientV3.WithPrefix())
 	cancel()
 	if err != nil {
-		return []string{}, nil
+		return []string{}, err
 	}
 
 	nodes := make([]string, 0)
@@ -146,12 +143,19 @@ func (m *Manager) getAllServices() ([]string, error) {
 		arr := strings.Split(string(ev.Key), m.etcdPrefix+"_")
 		addr := arr[1]
 		m.addNode(addr)
+		nodes = append(nodes, addr)
 	}
 
 	return nodes, nil
 }
 
 func (m *Manager) addNode(addr string) {
+	for _, v := range m.nodes {
+		if v.addr == addr {
+			return
+		}
+	}
+
 	c := nodeOperate{
 		operate: "addNode",
 		addr:    addr,
@@ -168,18 +172,15 @@ func (m *Manager) delNode(addr string) {
 }
 
 func (m *Manager) nodesWatch() {
-	for {
-		select {
-		case c := <-m.nodeChan:
-			switch c.operate {
-			case "addNode":
-				m.nodes = append(m.nodes, &node{addr: c.addr})
-			case "delNode":
-				for i := 0; i < len(m.nodes); i++ {
-					if m.nodes[i].addr == c.addr {
-						m.nodes = append(m.nodes[:i], m.nodes[i+1:]...)
-						i--
-					}
+	for c := range m.nodeChan {
+		switch c.operate {
+		case "addNode":
+			m.nodes = append(m.nodes, &node{addr: c.addr})
+		case "delNode":
+			for i := 0; i < len(m.nodes); i++ {
+				if m.nodes[i].addr == c.addr {
+					m.nodes = append(m.nodes[:i], m.nodes[i+1:]...)
+					i--
 				}
 			}
 		}

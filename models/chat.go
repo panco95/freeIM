@@ -9,6 +9,12 @@ type Message struct {
 	Body      string        `gorm:"column:body;type:text" json:"body"`                             //消息内容
 	IsPrivate bool          `gorm:"column:is_private;not null;default:0" json:"isPrivate"`         //是否私密消息
 	Status    MessageStatus `gorm:"column:status;not null;default:'normal'" json:"status"`         //消息状态
+	IsRead    bool          `gorm:"column:is_read;not null;default:false" json:"isRead"`           //消息是否已读
+}
+
+type MessageLog struct {
+	*Message
+	Self bool `json:"self"` //是否自己发的
 }
 
 type MessageStatus string
@@ -25,6 +31,7 @@ var (
 	MessageTypeVideo MessageType = "video" //视频
 	MessageTypeGeo   MessageType = "geo"   //地理位置
 	MessageTypeFile  MessageType = "file"  //文件
+	MessageTypeRead  MessageType = "read"  //对方已读
 
 	MessageOpeFriend MessageOpe = "friend" //好友
 	MessageOpeGroup  MessageOpe = "group"  //群聊

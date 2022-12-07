@@ -11,18 +11,12 @@ A free open source im server used by golang.
 - [x] Websocket protocol
 - [ ] Large number of users chat group
 
-- [ ] Distributed connection
+- [x] Distributed connection
 - [ ] Real time audio and video (RTC)
-- [ ] Multiple message types
+- [x] Multiple message types
 - [ ] Multiple platform client
 
-## Run
-
-cp development.yml.example development.yml
-
-go run main.go server
-
-## Build
+## How to use
 
 make build
 

@@ -312,20 +312,20 @@ func (s *Service) EmailOrMobileLogin(
 		return "", false, err
 	}
 
-	account, err = s.QueryAccount(ctx, account)
+	queryAccount, err := s.QueryAccount(ctx, account)
 	if err != nil {
 		return "", false, err
 	}
-	if account.ID == 0 {
+	if queryAccount.ID == 0 {
 		account.LastLoginIp = ip
 		return s.AutoRegister(ctx, account)
 	}
-	if account.Status == models.AccountStatusLock {
+	if queryAccount.Status == models.AccountStatusLock {
 		return "", false, errors.New(resp.ACCOUNT_LOCKED)
 	}
 
 	token, err := s.jwt.BuildToken(
-		account.ID,
+		queryAccount.ID,
 		models.LoginExpired,
 	)
 	if err != nil {
@@ -336,11 +336,11 @@ func (s *Service) EmailOrMobileLogin(
 	go func() {
 		now := time.Now()
 		err = db.Model(&models.Account{}).
-			Where("id = ?", account.ID).
+			Where("id = ?", queryAccount.ID).
 			Updates(models.Account{
 				LastLoginTime: &now,
 				LastLoginIp:   ip,
-				LoginTimes:    account.LoginTimes + 1,
+				LoginTimes:    queryAccount.LoginTimes + 1,
 			}).
 			Error
 		if err != nil {
@@ -349,7 +349,7 @@ func (s *Service) EmailOrMobileLogin(
 	}()
 
 	needSetPassword := false
-	if account.Password == "" {
+	if queryAccount.Password == "" {
 		needSetPassword = true
 	}
 

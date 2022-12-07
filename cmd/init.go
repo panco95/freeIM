@@ -32,6 +32,7 @@ type Packages struct {
 	cacheClient   *redisCache.Cache
 	redSyncClient *redsync.Redsync
 	etcdClient    *etcd.Etcd
+	manager       *etcd.Manager
 	emailClient   *email.Mail
 	smsClient     sms.Sms
 	qiniuClient   *qiniu.Qiniu
@@ -144,17 +145,34 @@ func NewPackages(serverID string) (pkgs *Packages) {
 		pkgs.smsClient = smsClient
 	}
 
-	// {
-	// 	viper.SetDefault("etcd.addrs", []string{})
-	// 	etcdClient, err := etcd.New(
-	// 		viper.GetStringSlice("etcd.addrs"),
-	// 		zap.S().With("client", "etcd").Desugar(),
-	// 	)
-	// 	if err != nil {
-	// 		log.Fatalf("Init etcd %v", err)
-	// 	}
-	// 	pkgs.etcdClient = etcdClient
-	// }
+	{
+		viper.SetDefault("etcd.addrs", []string{})
+		etcdClient, err := etcd.New(
+			viper.GetStringSlice("etcd.addrs"),
+			zap.S().With("client", "etcd").Desugar(),
+		)
+		if err != nil {
+			log.Fatalf("Init etcd %v", err)
+		}
+		pkgs.etcdClient = etcdClient
+	}
+
+	{
+		viper.SetDefault("etcd.prefix", "freeim")
+		viper.SetDefault("local.addr", "")
+		viper.SetDefault("rpc.private.port", "9000")
+		viper.SetDefault("etcd.addrs", []string{})
+		manager, err := etcd.NewManager(
+			pkgs.etcdClient.Client,
+			viper.GetString("local.addr"),
+			viper.GetString("rpc.private.port"),
+			viper.GetString("etcd.prefix"),
+		)
+		if err != nil {
+			log.Fatalf("Init mananger %v", err)
+		}
+		pkgs.manager = manager
+	}
 
 	{
 		viper.SetDefault("qiniu.ak", "")
@@ -179,6 +197,7 @@ type Services struct {
 	chatGroupSvc *chatgroup.Service
 	chatSvc      *chat.Service
 	systemSvc    *system.Service
+	rpc          *chat.RPC
 }
 
 func NewServices(pkgs *Packages) *Services {
@@ -213,9 +232,18 @@ func NewServices(pkgs *Packages) *Services {
 
 	chatSvc := chat.NewService(
 		pkgs.mysqlClient,
+		pkgs.manager,
 		config,
 		chatGroupSvc,
 	)
+
+	viper.SetDefault("project.name", "freeim")
+	rpc := chat.NewRPC(
+		viper.GetString("project.name"),
+		chatSvc,
+	)
+
+	chatSvc.RPC = rpc
 
 	return &Services{
 		accountSvc:   accountSvc,
@@ -223,6 +251,7 @@ func NewServices(pkgs *Packages) *Services {
 		chatSvc:      chatSvc,
 		friendSvc:    friendSvc,
 		chatGroupSvc: chatGroupSvc,
+		rpc:          rpc,
 	}
 }
 

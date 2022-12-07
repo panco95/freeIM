@@ -17,6 +17,8 @@ import (
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	cors "github.com/rs/cors/wrapper/gin"
+	rpcx_logger "github.com/smallnest/rpcx/log"
+	"github.com/smallnest/rpcx/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -71,6 +73,7 @@ var serverCmd = &cobra.Command{
 		go svcs.systemSvc.GetConfig().AutoRefresh(viper.GetDuration("config.autoRefreshInterval"))
 
 		var httpPublicServer *http.Server
+		var rpcPrivateServer *server.Server
 
 		var eg errgroup.Group
 		eg.Go(func() error {
@@ -90,6 +93,21 @@ var serverCmd = &cobra.Command{
 		})
 
 		eg.Go(func() error {
+			rpcPrivateServer = server.NewServer()
+			rpcx_logger.SetLogger(log)
+			if err := rpcPrivateServer.RegisterName(svcs.rpc.ProjectName, svcs.rpc, ""); err != nil {
+				return err
+			}
+			port := ":" + viper.GetString("rpc.private.port")
+			log.Infof("RPC private server listen on: %s", port)
+			if err := rpcPrivateServer.Serve("tcp", port); err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		eg.Go(func() error {
 			signalChan := make(chan os.Signal, 1)
 			signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 			sig := <-signalChan
@@ -99,6 +117,9 @@ var serverCmd = &cobra.Command{
 			var wg sync.WaitGroup
 			servers := []*http.Server{
 				httpPublicServer,
+			}
+			rpcServers := []*server.Server{
+				rpcPrivateServer,
 			}
 
 			for _, svr := range servers {
@@ -113,7 +134,25 @@ var serverCmd = &cobra.Command{
 					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()
 					if err := svr.Shutdown(ctx); err != nil {
-						log.Errorf("Server shutdown %v", err)
+						log.Errorf("HTTP server shutdown %v", err)
+					}
+					wg.Done()
+				}()
+			}
+
+			for _, svr := range rpcServers {
+				if svr == nil {
+					continue
+				}
+
+				svr := svr
+				wg.Add(1)
+
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					if err := svr.Shutdown(ctx); err != nil {
+						log.Errorf("RPC server shutdown %v", err)
 					}
 					wg.Done()
 				}()
@@ -222,6 +261,8 @@ func GetGinPublicEngine(ctrls *GinControllers, pkgs *Packages) (*gin.Engine, err
 
 	api.POST("chat/send", ctrls.chatCtrl.SendMessage)             //发送消息
 	api.POST("chat/revocation", ctrls.chatCtrl.RevocationMessage) //撤回消息
+	api.POST("chat/read", ctrls.chatCtrl.ReadMessage)             //已读消息
+	api.GET("chat/messages", ctrls.chatCtrl.GetMessagLogs)        //获取聊天记录
 
 	return router, nil
 }

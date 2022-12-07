@@ -1,12 +1,19 @@
+local:
+  addr:
+
+project:
+  name: freeim
+
 http:
   public:
-    port: 8081
+    port: 8080
 rpc:
-  port: 8083
+  private:
+    port: 9000
 
 mysql:
   logLevel: 0
-  addr: root:password@tcp(127.0.0.1:3306)/freeim?charset=utf8mb4&parseTime=True&loc=Local
+  addr: root:0825@tcp(127.0.0.1:3306)/im?charset=utf8mb4&parseTime=True&loc=Local
   maxIdleConns: 10
   maxOpenConns: 100
   connMaxLifetime: "1h"
@@ -20,7 +27,7 @@ email:
   addr: smtp.qq.com:25
   identity:
   username: 
-  password: z
+  password: 
   host: smtp.qq.com
 
 aliyun:
@@ -41,7 +48,8 @@ config:
 
 etcd:
   addrs:
-    - 192.168.115.137:2379
+    - 127.0.0.1:2379
+  prefix: freeim
 
 qiniu:
   ak: 
