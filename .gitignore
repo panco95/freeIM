@@ -9,10 +9,7 @@ dist
 .cache
 .gopath
 .gocache/
-
-*.yaml
-!.*.yaml
-!config/*.example.yaml
+development.yml
 
 *.env
 *.pem

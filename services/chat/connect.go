@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"im/models"
@@ -72,12 +73,22 @@ func (s *Service) ConnectWebsocket(ctx *gin.Context) {
 // 消息处理协程
 func (s *Service) ConnChannel(c *Connection) {
 	for msg := range c.Channel {
-		s.log.Infof("%d: %s", c.AccountId, string(msg))
+		go func(msg []byte) {
+			var message *models.Message
+			if err := json.Unmarshal(msg, message); err != nil {
+				return
+			}
 
-		var message models.Message
-		if err := json.Unmarshal(msg, &message); err != nil {
-			continue
-		}
+			switch message.Type {
+			case models.MessageTypeInput: //对方正在输入
+				message.FromId = c.AccountId
+				err := s.RPC.SendMessageCall(context.Background(), message)
+				if err != nil {
+					s.log.Errorf("ConnChannel MessageTypeInput RPC.SendMessageCall %v", err)
+				}
+			}
+
+		}(msg)
 	}
 }
 

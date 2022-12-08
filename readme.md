@@ -26,8 +26,16 @@ A free open source im server used by golang.
 
 ## How to run
 
+cp development.yml.example development.yml
+
 go run main.go server
 
 ## How to build
 
 make build
+
+## Docker
+
+cp development.yml.example development.yml
+
+docker-compose up

@@ -23,7 +23,8 @@ type MessageOpe string
 
 var (
 	MessageStatusNormal     MessageStatus = "normal"     //正常
-	MessageStatusRevocation MessageStatus = "revocation" //已撤回
+	MessageStatusRevocation MessageStatus = "revocation" //撤回
+	MessageStatusFinish     MessageStatus = "finish"     //结束(例如对方正在输入完成)
 
 	MessageTypeText  MessageType = "text"  //文字
 	MessageTypePic   MessageType = "pic"   //图片
@@ -32,6 +33,7 @@ var (
 	MessageTypeGeo   MessageType = "geo"   //地理位置
 	MessageTypeFile  MessageType = "file"  //文件
 	MessageTypeRead  MessageType = "read"  //对方已读
+	MessageTypeInput MessageType = "input" //对方正在输入
 
 	MessageOpeFriend MessageOpe = "friend" //好友
 	MessageOpeGroup  MessageOpe = "group"  //群聊
