@@ -9,5 +9,5 @@ services:
       - "8080:8080"
       - "9001:9001"
     volumes:
-      - ./development.yml:/app/development.yml
+      - ./development.yml:/development.yml
     command: server

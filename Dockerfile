@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY go.mod ./
 COPY go.sum ./
-COPY development.yml.example ./development.yml
+COPY development.yml.example /development.yml
 RUN go mod download
 
 FROM mod as builder
