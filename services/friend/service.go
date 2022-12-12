@@ -3,11 +3,13 @@ package friend
 import (
 	"context"
 	"errors"
+	"fmt"
 	"im/models"
 	"im/pkg/database"
 	"im/pkg/resp"
 	"im/services/system/config"
 
+	redislib "github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -15,16 +17,19 @@ import (
 type Service struct {
 	log         *zap.SugaredLogger
 	mysqlClient *database.Client
+	redisClient *redislib.Client
 	config      *config.Config
 }
 
 func NewService(
 	mysqlClient *database.Client,
+	redisClient *redislib.Client,
 	config *config.Config,
 ) *Service {
 	return &Service{
 		log:         zap.S().With("module", "services.friend.service"),
 		mysqlClient: mysqlClient,
+		redisClient: redisClient,
 		config:      config,
 	}
 }
@@ -675,4 +680,77 @@ func (s *Service) VerifyFriend(
 	}
 
 	return res, nil
+}
+
+// 附近的人
+func (s *Service) NearFriends(
+	ctx context.Context,
+	accountId uint,
+	req *models.NearFriendsReq,
+) ([]*models.NearFriendsItem, error) {
+	db := s.mysqlClient.Db()
+	geoKey := "accountLocation"
+
+	res, err := s.redisClient.GeoRadius(ctx, geoKey, req.Longitude, req.Latitude, &redislib.GeoRadiusQuery{
+		Radius:    20000,
+		Unit:      "m",
+		WithCoord: true,
+		WithDist:  true,
+		Count:     100,
+		Sort:      "ASC",
+	}).Result()
+	if err != nil {
+		s.log.Errorf("NearFriends cmd.GeoRadius %v", err)
+		return nil, err
+	}
+
+	items := make([]*models.NearFriendsItem, 0)
+	for _, v := range res {
+		if v.Name == fmt.Sprintf("%d", accountId) {
+			continue
+		}
+		account := &models.Account{}
+		err := db.Model(&models.Account{}).
+			Where("id = ?", v.Name).
+			First(account).Error
+		if err != nil {
+			s.log.Errorf("NearFriends account select %v", err)
+			continue
+		}
+		account.Longitude = v.Longitude
+		account.Latitude = v.Latitude
+		items = append(items, &models.NearFriendsItem{
+			Account:  account,
+			Distance: fmt.Sprintf("%.0fm", v.Dist),
+		})
+	}
+
+	for _, v := range items {
+		if v.Account != nil {
+			v.Account.CreatedAt = nil
+			v.Account.UpdatedAt = nil
+		}
+	}
+
+	go func() {
+		err := s.redisClient.GeoAdd(context.Background(), geoKey, &redislib.GeoLocation{
+			Longitude: req.Longitude,
+			Latitude:  req.Latitude,
+			Name:      fmt.Sprintf("%d", accountId),
+		}).Err()
+		if err != nil {
+			s.log.Errorf("NearFriends redisClient.GeoAdd %v", err)
+		}
+		err = db.Model(&models.Account{}).
+			Where("id = ?", accountId).
+			Updates(&models.Account{
+				Longitude: req.Longitude,
+				Latitude:  req.Latitude,
+			}).Error
+		if err != nil {
+			s.log.Errorf("NearFriends mysqlClient.Updates %v", err)
+		}
+	}()
+
+	return items, nil
 }

@@ -122,8 +122,25 @@ func IntersectString(slice1, slice2 []string) []string {
 	return nn
 }
 
+// 交集
+func IntersectUint(slice1, slice2 []uint) []uint {
+	m := make(map[uint]int)
+	nn := make([]uint, 0)
+	for _, v := range slice1 {
+		m[v]++
+	}
+
+	for _, v := range slice2 {
+		times := m[v]
+		if times == 1 {
+			nn = append(nn, v)
+		}
+	}
+	return nn
+}
+
 // 并集
-func Union(slice1, slice2 []string) []string {
+func UnionString(slice1, slice2 []string) []string {
 	m := make(map[string]int)
 	for _, v := range slice1 {
 		m[v]++

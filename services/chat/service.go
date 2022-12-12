@@ -158,13 +158,16 @@ func (s *Service) ReadMessage(
 func (s *Service) GetMessagLogs(
 	ctx context.Context,
 	accountId uint,
-	req *models.ToIDReq,
+	req *models.GetMessagesReq,
 	page *middlewares.Pagination,
 ) ([]*models.MessageLog, int64, error) {
 	db := s.mysqlClient.Db()
 	query := db.Model(&models.Message{}).
 		Where("(from_id = ? and to_id = ?) or (from_id = ? and to_id = ?)", accountId, req.ToID, req.ToID, accountId).
 		Where("status <> ?", models.MessageStatusRevocation)
+	if req.MessageType != "" {
+		query = query.Where("type = ?", req.MessageType)
+	}
 
 	var total int64
 	msgs := make([]*models.Message, 0)

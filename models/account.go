@@ -22,6 +22,8 @@ type Account struct {
 	LastLoginTime *time.Time    `gorm:"column:last_login_time;" json:"-"`                                                    //最后登陆时间
 	LastLoginIp   string        `gorm:"column:last_login_ip;not null;default:'';type:varchar(20)" json:"-"`                  //最后登录IP
 	LoginTimes    uint          `gorm:"column:login_times;not null;default:0;type:int(10)" json:"-"`                         //登录次数
+	Longitude     float64       `gorm:"column:longitude;not null;default:0;type:decimal(9,6)" json:"longitude"`              //经度
+	Latitude      float64       `gorm:"column:latitude;not null;default:0;type:decimal(9,6)" json:"latitude"`                //纬度
 }
 
 const (
@@ -117,6 +119,8 @@ type UpdatePasswordReq struct {
 }
 
 type UpdateAccountInfoReq struct {
-	Avatar   string `form:"avatar"`
-	Nickname string `form:"nickname"`
+	Avatar    string  `form:"avatar"`
+	Nickname  string  `form:"nickname"`
+	Longitude float64 `form:"longitude"`
+	Latitude  float64 `form:"latitude"`
 }

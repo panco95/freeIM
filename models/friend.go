@@ -100,3 +100,13 @@ type VerifyFriendRes struct {
 	IsFriend    bool `json:"isFriend"`
 	IsBlacklist bool `json:"isBlacklist"`
 }
+
+type NearFriendsReq struct {
+	Longitude float64 `form:"longitude" binding:"required"`
+	Latitude  float64 `form:"latitude" binding:"required"`
+}
+
+type NearFriendsItem struct {
+	*Account
+	Distance string `json:"distance"`
+}

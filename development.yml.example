@@ -24,11 +24,11 @@ redis:
   db: 0
 
 email:
-  addr: smtp.qq.com:25
+  addr: 
   identity:
-  username: 1129443982@qq.com
-  password: zhckeddmgjdlgjbb
-  host: smtp.qq.com
+  username: 
+  password: 
+  host: 
 
 aliyun:
   regionId: 
@@ -39,8 +39,8 @@ aliyun:
     templateCode:
 
 smsbao:
-  username: a97392828
-  password: 0c3b7189bb23477db90f6fa5352e7221
+  username: 
+  password: 
   sendRange: local
 
 config:
@@ -48,10 +48,11 @@ config:
 
 etcd:
   addrs:
-    - 192.168.35.128:2379
+    - 127.0.0.1:2379
   prefix: freeim
 
 qiniu:
-  ak: U7nSFEZVJ7gnNNqTrsvN5BeRzDrbQMTlHChzCybC
-  sk: H289Jm953amJmDuFvXTeU6jz2zCmfztlDoLRSyMH
-  bucket: freeim
+  ak: 
+  sk: 
+  bucket: 
+  domain: 

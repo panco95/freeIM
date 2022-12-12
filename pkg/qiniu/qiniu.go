@@ -9,14 +9,16 @@ type Qiniu struct {
 	AK             string
 	SK             string
 	Bucket         string
+	Domain         string
 	TokenExpireSec uint64
 }
 
-func New(ak, sk, bucket string, tokenExpireSec uint64) *Qiniu {
+func New(ak, sk, bucket, domain string, tokenExpireSec uint64) *Qiniu {
 	return &Qiniu{
 		AK:             ak,
 		SK:             sk,
 		Bucket:         bucket,
+		Domain:         domain,
 		TokenExpireSec: tokenExpireSec,
 	}
 }
@@ -29,4 +31,8 @@ func (qn *Qiniu) GetUploadToken() string {
 	}
 	upToken := putPolicy.UploadToken(mac)
 	return upToken
+}
+
+func (qn *Qiniu) GetDomain() string {
+	return qn.Domain
 }

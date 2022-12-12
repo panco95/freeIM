@@ -86,8 +86,12 @@ func (s *Service) ConnChannel(c *Connection) {
 				if err != nil {
 					s.log.Errorf("ConnChannel MessageTypeInput RPC.SendMessageCall %v", err)
 				}
+			case models.MessageTypePing: //心跳
+				err := c.Conn.WriteJSON(msg)
+				if err != nil {
+					s.log.Errorf("ConnChannel MessageTypePing Conn.WriteJSON %v", err)
+				}
 			}
-
 		}(msg)
 	}
 }

@@ -341,3 +341,31 @@ func (ctrl *GinController) ChatGroupBannedMember(c *gin.Context) {
 
 	c.JSON(http.StatusOK, &resp.Response{Message: resp.PROCESS_SUCCESS})
 }
+
+// 获取好友共同群组
+func (ctrl *GinController) GetFriendCommonChatGroups(c *gin.Context) {
+	req := &models.ToIDReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	items, err := ctrl.ChatGroupSvc.GetFriendCommonChatGroups(
+		c.Request.Context(),
+		c.GetUint("id"),
+		req,
+	)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	result := resp.PageResult{
+		Items: items,
+		Total: int64(len(items)),
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Result: result})
+}

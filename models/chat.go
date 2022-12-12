@@ -34,6 +34,7 @@ var (
 	MessageTypeFile  MessageType = "file"  //文件
 	MessageTypeRead  MessageType = "read"  //对方已读
 	MessageTypeInput MessageType = "input" //对方正在输入
+	MessageTypePing  MessageType = "ping"  //心跳
 
 	MessageOpeFriend MessageOpe = "friend" //好友
 	MessageOpeGroup  MessageOpe = "group"  //群聊
@@ -52,4 +53,9 @@ type RevocationMessageReq struct {
 	ToIDReq
 	Id  uint       `form:"id" binding:"required"`  //消息ID
 	Ope MessageOpe `form:"ope" binding:"required"` //消息通道
+}
+
+type GetMessagesReq struct {
+	ToIDReq
+	MessageType MessageType `form:"messageType"`
 }

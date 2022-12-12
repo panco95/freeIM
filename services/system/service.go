@@ -52,7 +52,8 @@ func (s *Service) GetConfig() *config.Config {
 }
 
 // 获取七牛云上传Token
-func (s *Service) GetQiniuUploadToken() string {
+func (s *Service) GetQiniuUploadToken() (string, string) {
 	token := s.qiniuClient.GetUploadToken()
-	return token
+	domain := s.qiniuClient.GetDomain()
+	return token, domain
 }

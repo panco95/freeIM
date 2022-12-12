@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image/png"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 
 	"github.com/afocus/captcha"
 	redisCache "github.com/go-redis/cache/v8"
+	redislib "github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -25,6 +27,7 @@ import (
 type Service struct {
 	log         *zap.SugaredLogger
 	mysqlClient *database.Client
+	redisClient *redislib.Client
 	cacheClient *redisCache.Cache
 	emailClient *email.Mail
 	smsClient   sms.Sms
@@ -34,6 +37,7 @@ type Service struct {
 
 func NewService(
 	mysqlClient *database.Client,
+	redisClient *redislib.Client,
 	cacheClient *redisCache.Cache,
 	emailClient *email.Mail,
 	smsClient sms.Sms,
@@ -43,6 +47,7 @@ func NewService(
 	return &Service{
 		log:         zap.S().With("module", "services.account.service"),
 		mysqlClient: mysqlClient,
+		redisClient: redisClient,
 		cacheClient: cacheClient,
 		emailClient: emailClient,
 		smsClient:   smsClient,
@@ -485,12 +490,28 @@ func (s *Service) UpdateAccountInfo(
 	err := db.Model(&models.Account{}).
 		Where("id = ?", accountId).
 		Updates(models.Account{
-			Nickname: req.Nickname,
-			Avatar:   req.Avatar,
+			Nickname:  req.Nickname,
+			Avatar:    req.Avatar,
+			Longitude: req.Longitude,
+			Latitude:  req.Latitude,
 		}).Error
 	if err != nil {
 		s.log.Errorf("UpdateAccountInfo update %v", err)
 		return err
+	}
+
+	geoKey := "accountLocation"
+	if req.Latitude != 0 && req.Longitude != 0 {
+		go func() {
+			err := s.redisClient.GeoAdd(context.Background(), geoKey, &redislib.GeoLocation{
+				Name:      fmt.Sprintf("%d", accountId),
+				Longitude: req.Longitude,
+				Latitude:  req.Latitude,
+			}).Err()
+			if err != nil {
+				s.log.Errorf("UpdateAccountInfo geoadd %v", err)
+			}
+		}()
 	}
 
 	return nil

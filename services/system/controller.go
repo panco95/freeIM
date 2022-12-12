@@ -18,10 +18,11 @@ func NewGinController(svc *Service) *GinController {
 	}
 }
 
-func (ctrl *GinController) GetQiniuUploadToken(c *gin.Context) {
-	uploadToken := ctrl.SystemSvc.GetQiniuUploadToken()
+func (ctrl *GinController) GetQiniuParams(c *gin.Context) {
+	uploadToken, accessDomain := ctrl.SystemSvc.GetQiniuUploadToken()
 	c.JSON(http.StatusOK, &resp.Response{Result: gin.H{
-		"uploadToken": uploadToken,
+		"uploadToken":  uploadToken,
+		"accessDomain": accessDomain,
 	}})
 
 }

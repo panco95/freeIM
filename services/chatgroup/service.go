@@ -6,6 +6,7 @@ import (
 	"im/models"
 	"im/pkg/database"
 	"im/pkg/resp"
+	"im/pkg/utils"
 	"im/services/system/config"
 	"strconv"
 	"time"
@@ -756,4 +757,58 @@ func (s *Service) ChatGroupBannedMember(
 	}
 
 	return nil
+}
+
+// 获取好友共同群组
+func (s *Service) GetFriendCommonChatGroups(
+	ctx context.Context,
+	accountId uint,
+	req *models.ToIDReq,
+) ([]*models.ChatGroup, error) {
+	db := s.mysqlClient.Db()
+
+	// 好友加的群
+	friendChatGroupMembers := make([]*models.ChatGroupMember, 0)
+	err := db.Model(&models.ChatGroupMember{}).
+		Where("account_id = ?", req.ToID).
+		Find(&friendChatGroupMembers).Error
+	if err != nil {
+		s.log.Errorf("GetFriendCommonChatGroups select friend %v", err)
+		return nil, err
+	}
+	friendGropIdList := make([]uint, 0)
+	for _, v := range friendChatGroupMembers {
+		friendGropIdList = append(friendGropIdList, v.ChatGroupId)
+	}
+
+	// 我加的群
+	selfChatGroupMembers := make([]*models.ChatGroupMember, 0)
+	err = db.Model(&models.ChatGroupMember{}).
+		Where("account_id = ?", accountId).
+		Find(&selfChatGroupMembers).Error
+	if err != nil {
+		s.log.Errorf("GetFriendCommonChatGroups select self %v", err)
+		return nil, err
+	}
+	selfGropIdList := make([]uint, 0)
+	for _, v := range selfChatGroupMembers {
+		selfGropIdList = append(selfGropIdList, v.ChatGroupId)
+	}
+
+	// 查询公共群聊
+	commonChatGroupIdList := utils.IntersectUint(friendGropIdList, selfGropIdList)
+	chatGroups := make([]*models.ChatGroup, 0)
+	err = db.Model(&models.ChatGroup{}).
+		Where("id in ?", commonChatGroupIdList).
+		Find(&chatGroups).Error
+	if err != nil {
+		s.log.Errorf("GetFriendCommonChatGroups select common %v", err)
+		return nil, err
+	}
+	for _, v := range chatGroups {
+		v.CreatedAt = nil
+		v.UpdatedAt = nil
+	}
+
+	return chatGroups, nil
 }
