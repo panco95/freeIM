@@ -155,7 +155,7 @@ func (s *Service) BasicLogin(
 	ip string,
 ) (string, *models.Account, error) {
 	db := s.mysqlClient.Db()
-	if s.config.Get("login_captcha") == "true" {
+	if s.config.GetString("login_captcha") != "false" {
 		err := s.CheckCaptcha(ctx, req.CaptchaKey, req.Captcha, models.CaptchaTypeLogin)
 		if err != nil {
 			return "", nil, err
@@ -213,7 +213,7 @@ func (s *Service) BasicRegister(
 	ip string,
 ) (string, *models.Account, error) {
 	db := s.mysqlClient.Db()
-	if s.config.Get("login_captcha") == "true" {
+	if s.config.GetString("login_captcha") != "false" {
 		err := s.CheckCaptcha(ctx, req.CaptchaKey, req.Captcha, models.CaptchaTypeRegister)
 		if err != nil {
 			return "", nil, err
@@ -480,7 +480,7 @@ func (s *Service) UpdatePassword(
 	return nil
 }
 
-// 设置密码
+// 更新用户信息
 func (s *Service) UpdateAccountInfo(
 	ctx context.Context,
 	accountId uint,
@@ -494,6 +494,12 @@ func (s *Service) UpdateAccountInfo(
 			Avatar:    req.Avatar,
 			Longitude: req.Longitude,
 			Latitude:  req.Latitude,
+			Country:   req.Country,
+			Province:  req.Province,
+			City:      req.City,
+			District:  req.District,
+			Gender:    req.Gender,
+			Intro:     req.Intro,
 		}).Error
 	if err != nil {
 		s.log.Errorf("UpdateAccountInfo update %v", err)

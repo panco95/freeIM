@@ -3,6 +3,7 @@ package chatgroup
 import (
 	"context"
 	"errors"
+	"fmt"
 	"im/models"
 	"im/pkg/database"
 	"im/pkg/resp"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	redislib "github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -18,16 +20,19 @@ import (
 type Service struct {
 	log         *zap.SugaredLogger
 	mysqlClient *database.Client
+	redisClient *redislib.Client
 	config      *config.Config
 }
 
 func NewService(
 	mysqlClient *database.Client,
+	redisClient *redislib.Client,
 	config *config.Config,
 ) *Service {
 	return &Service{
 		log:         zap.S().With("module", "services.chat_group.service"),
 		mysqlClient: mysqlClient,
+		redisClient: redisClient,
 		config:      config,
 	}
 }
@@ -178,6 +183,13 @@ func (s *Service) CreateChatGroup(
 		Intro:             req.Intro,
 		Members:           1,
 		MembersLimit:      models.DefaultChatgroupMaxMembers,
+		Latitude:          req.Latitude,
+		Longitude:         req.Longitude,
+		Country:           req.Country,
+		Province:          req.Province,
+		City:              req.City,
+		District:          req.District,
+		Address:           req.Address,
 		DisableAddMember:  req.DisableAddMember,
 		DisableViewMember: req.DisableViewMember,
 		DisbaleAddGroup:   req.DisbaleAddGroup,
@@ -203,6 +215,20 @@ func (s *Service) CreateChatGroup(
 		return err
 	}
 
+	geoKey := "chatGroupLocation"
+	if req.Latitude != 0 && req.Longitude != 0 {
+		go func() {
+			err := s.redisClient.GeoAdd(context.Background(), geoKey, &redislib.GeoLocation{
+				Name:      fmt.Sprintf("%d", chatGroup.ID),
+				Longitude: req.Longitude,
+				Latitude:  req.Latitude,
+			}).Err()
+			if err != nil {
+				s.log.Errorf("CreateChatGroup geoadd %v", err)
+			}
+		}()
+	}
+
 	return nil
 }
 
@@ -223,18 +249,48 @@ func (s *Service) EditChatGroup(
 	}
 	err = db.Model(&models.ChatGroup{}).
 		Where("id = ?", req.GroupId).
-		Select("name", "intro", "disable_add_member", "disable_view_member", "disbale_add_group", "enbale_before_msg").
 		Updates(&models.ChatGroup{
-			Name:              req.Name,
-			Intro:             req.Intro,
+			Name:      req.Name,
+			Intro:     req.Intro,
+			Longitude: req.Longitude,
+			Latitude:  req.Latitude,
+			Address:   req.Address,
+			Country:   req.Country,
+			Province:  req.Province,
+			City:      req.City,
+			District:  req.District,
+		}).Error
+	if err != nil {
+		s.log.Errorf("EditChatGroup update-1 %v", err)
+		return err
+	}
+
+	err = db.Model(&models.ChatGroup{}).
+		Where("id = ?", req.GroupId).
+		Select("disable_add_member", "disable_view_member", "disable_add_group", "enable_before_msg").
+		Updates(&models.ChatGroup{
 			DisableAddMember:  req.DisableAddMember,
 			DisableViewMember: req.DisableViewMember,
 			DisbaleAddGroup:   req.DisbaleAddGroup,
 			EnbaleBeforeMsg:   req.EnbaleBeforeMsg,
 		}).Error
 	if err != nil {
-		s.log.Errorf("EditChatGroup update %v", err)
+		s.log.Errorf("EditChatGroup update-2 %v", err)
 		return err
+	}
+
+	geoKey := "chatGroupLocation"
+	if req.Latitude != 0 && req.Longitude != 0 {
+		go func() {
+			err := s.redisClient.GeoAdd(context.Background(), geoKey, &redislib.GeoLocation{
+				Name:      fmt.Sprintf("%d", req.GroupId),
+				Longitude: req.Longitude,
+				Latitude:  req.Latitude,
+			}).Err()
+			if err != nil {
+				s.log.Errorf("CreateChatGroup geoadd %v", err)
+			}
+		}()
 	}
 
 	return nil
@@ -811,4 +867,59 @@ func (s *Service) GetFriendCommonChatGroups(
 	}
 
 	return chatGroups, nil
+}
+
+// 附近的群
+func (s *Service) NearChatGroups(
+	ctx context.Context,
+	accountId uint,
+	req *models.NearChatGroupsReq,
+) ([]*models.NearChatGroupsItem, error) {
+	db := s.mysqlClient.Db()
+	geoKey := "chatGroupLocation"
+
+	largeDistance := s.config.GetFloat64("near_chatgroup_distance")
+	if largeDistance == 0 {
+		largeDistance = 1000000
+	}
+
+	res, err := s.redisClient.GeoRadius(ctx, geoKey, req.Longitude, req.Latitude, &redislib.GeoRadiusQuery{
+		Radius:    largeDistance,
+		Unit:      "m",
+		WithCoord: true,
+		WithDist:  true,
+		Count:     100,
+		Sort:      "ASC",
+	}).Result()
+	if err != nil {
+		s.log.Errorf("NearChatGroups cmd.GeoRadius %v", err)
+		return nil, err
+	}
+
+	items := make([]*models.NearChatGroupsItem, 0)
+	for _, v := range res {
+		chatGroup := &models.ChatGroup{}
+		err := db.Model(&models.ChatGroup{}).
+			Where("id = ?", v.Name).
+			First(chatGroup).Error
+		if err != nil {
+			s.log.Errorf("NearChatGroups chatGroup select %v", err)
+			continue
+		}
+		chatGroup.Longitude = v.Longitude
+		chatGroup.Latitude = v.Latitude
+		items = append(items, &models.NearChatGroupsItem{
+			ChatGroup: chatGroup,
+			Distance:  fmt.Sprintf("%.0fm", v.Dist),
+		})
+	}
+
+	for _, v := range items {
+		if v.ChatGroup != nil {
+			v.ChatGroup.CreatedAt = nil
+			v.ChatGroup.UpdatedAt = nil
+		}
+	}
+
+	return items, nil
 }

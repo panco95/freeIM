@@ -69,6 +69,7 @@ var serverCmd = &cobra.Command{
 		}
 
 		// 自动刷新配置
+		svcs.systemSvc.GetConfig().InitDBConf()
 		viper.SetDefault("config.autoRefreshInterval", "10s")
 		go svcs.systemSvc.GetConfig().AutoRefresh(viper.GetDuration("config.autoRefreshInterval"))
 
@@ -247,6 +248,7 @@ func GetGinPublicEngine(ctrls *GinControllers, pkgs *Packages) (*gin.Engine, err
 
 	api.POST("chatGroups/search", ctrls.chatGroupCtrl.SearchChatGroup)          //搜索群聊
 	api.POST("chatGroups", ctrls.chatGroupCtrl.CreateChatGroup)                 //创建群聊
+	api.GET("chatGroups/near", ctrls.chatGroupCtrl.NearChatGroups)              //附近的群
 	api.PUT("chatGroups", ctrls.chatGroupCtrl.EditChatGroup)                    //修改群聊资料
 	api.POST("chatGroups/join", ctrls.chatGroupCtrl.JoinChatGroup)              //加群申请
 	api.POST("chatGroups/join/reply", ctrls.chatGroupCtrl.JoinChatGroupReply)   //加群审批

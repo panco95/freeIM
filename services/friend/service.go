@@ -691,8 +691,13 @@ func (s *Service) NearFriends(
 	db := s.mysqlClient.Db()
 	geoKey := "accountLocation"
 
+	largeDistance := s.config.GetFloat64("near_friend_distance")
+	if largeDistance == 0 {
+		largeDistance = 1000000
+	}
+
 	res, err := s.redisClient.GeoRadius(ctx, geoKey, req.Longitude, req.Latitude, &redislib.GeoRadiusQuery{
-		Radius:    20000,
+		Radius:    largeDistance,
 		Unit:      "m",
 		WithCoord: true,
 		WithDist:  true,

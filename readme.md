@@ -5,30 +5,24 @@ A free open source im server used by golang.
 ## Features
 
 - [x] Free open source
+- [x] Username/email/mobile social
+
 - [x] Relation chain
-- [x] Friend social
-- [x] Group socail
-- [x] Neighborhood social
-- [x] Distributed connection
 - [x] Websocket protocol
-- [x] Multiple message types
-- [x] High performance
 - [ ] Large number of users chat group
+
+- [x] Distributed connection
 - [ ] Real time audio and video (RTC)
+- [x] Multiple message types
 - [ ] Multiple platform client
 
-## Component:
+## Need package:
 
-- [x] Mysql
-- [x] Redis
-- [x] Etcd
-- [ ] Clickhouse
-
-## Thirdparty
-
-- [x] Qiniu-cloud
-- [x] Smsbao
-- [x] Smtp(email)
+- mysql
+- redis
+- etcd
+- smtp
+- expansion: qiniu,smsbao
 
 ## How to run
 

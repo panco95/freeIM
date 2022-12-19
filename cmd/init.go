@@ -231,6 +231,7 @@ func NewServices(pkgs *Packages) *Services {
 
 	chatGroupSvc := chatgroup.NewService(
 		pkgs.mysqlClient,
+		pkgs.redisClient,
 		config,
 	)
 

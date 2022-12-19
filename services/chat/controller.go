@@ -72,7 +72,7 @@ func (ctrl *GinController) RevocationMessage(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &resp.Response{Message: resp.SUCCESS})
+	c.JSON(http.StatusOK, &resp.Response{Message: resp.SUCCESS, Result: req})
 }
 
 // 已读消息

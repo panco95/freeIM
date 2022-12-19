@@ -49,6 +49,30 @@ func (ctrl *GinController) SearchChatGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, &resp.Response{Result: result})
 }
 
+// 附近的群
+func (ctrl *GinController) NearChatGroups(c *gin.Context) {
+	req := &models.NearChatGroupsReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	items, err := ctrl.ChatGroupSvc.NearChatGroups(c.Request.Context(), c.GetUint("id"), req)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	res := resp.PageResult{
+		Items: items,
+		Total: int64(len(items)),
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Result: res})
+}
+
 // 创建群聊
 func (ctrl *GinController) CreateChatGroup(c *gin.Context) {
 	req := &models.CreateChatGroupReq{}

@@ -11,3 +11,7 @@ type OperateLogs struct {
 	FieldsBefore ArrayFieldString `gorm:"column:fields_before;type:json;comment:修改前字段" json:"beforeFields"`
 	FieldsAfter  ArrayFieldString `gorm:"column:fields_after;type:json;comment:修改后字段" json:"afterFields"`
 }
+
+func (OperateLogs) TableName() string {
+	return "im_operate_logs"
+}

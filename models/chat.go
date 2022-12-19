@@ -12,6 +12,10 @@ type Message struct {
 	IsRead    bool          `gorm:"column:is_read;not null;default:false" json:"isRead"`           //消息是否已读
 }
 
+func (Message) TableName() string {
+	return "im_messages"
+}
+
 type MessageLog struct {
 	*Message
 	Self bool `json:"self"` //是否自己发的
