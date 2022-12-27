@@ -128,6 +128,11 @@ type ChatGroupToIDReq struct {
 	ToIDReq
 }
 
+type ChatGroupToIDListReq struct {
+	GroupIdReq
+	ToIDListReq
+}
+
 type ChatGroupSetManagerReq struct {
 	GroupIdReq
 	ToIDReq

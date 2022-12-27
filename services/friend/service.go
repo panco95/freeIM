@@ -693,12 +693,12 @@ func (s *Service) NearFriends(
 
 	largeDistance := s.config.GetFloat64("near_friend_distance")
 	if largeDistance == 0 {
-		largeDistance = 1000000
+		largeDistance = 1000
 	}
 
 	res, err := s.redisClient.GeoRadius(ctx, geoKey, req.Longitude, req.Latitude, &redislib.GeoRadiusQuery{
 		Radius:    largeDistance,
-		Unit:      "m",
+		Unit:      "km",
 		WithCoord: true,
 		WithDist:  true,
 		Count:     100,
@@ -726,7 +726,7 @@ func (s *Service) NearFriends(
 		account.Latitude = v.Latitude
 		items = append(items, &models.NearFriendsItem{
 			Account:  account,
-			Distance: fmt.Sprintf("%.0fm", v.Dist),
+			Distance: fmt.Sprintf("%.2fkm", v.Dist),
 		})
 	}
 

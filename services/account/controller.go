@@ -117,6 +117,7 @@ func (ctrl *GinController) EmailLogin(c *gin.Context) {
 		c.Request.Context(),
 		models.CaptchaTypeEmail,
 		req.Captcha,
+		req.InviteCode,
 		&models.Account{
 			Email: req.Email,
 		},
@@ -188,6 +189,7 @@ func (ctrl *GinController) MobileLogin(c *gin.Context) {
 		c.Request.Context(),
 		models.CaptchaTypeMobile,
 		req.Captcha,
+		req.InviteCode,
 		&models.Account{
 			Mobile: req.Mobile,
 		},
@@ -286,4 +288,23 @@ func (ctrl *GinController) UpdateAccountInfo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, &resp.Response{Message: resp.SETTING_SUCCESS})
+}
+
+// 发现页
+func (ctrl *GinController) GetDiscovers(c *gin.Context) {
+	items, err := ctrl.AccountSvc.GetDiscovers(
+		c.Request.Context(),
+	)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	result := resp.PageResult{
+		Items: items,
+		Total: int64(len(items)),
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Result: result})
 }

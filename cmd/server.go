@@ -61,6 +61,8 @@ var serverCmd = &cobra.Command{
 			&models.ChatGroupJoin{},
 			&models.Message{},
 			&models.OperateLogs{},
+			&models.Discover{},
+			&models.InviteCode{},
 		); err != nil {
 			log.Fatalf("Mysql AutoMigrate %v", err)
 		}
@@ -220,6 +222,7 @@ func GetGinPublicEngine(ctrls *GinControllers, pkgs *Packages) (*gin.Engine, err
 	api.Use(middlewares.NewJwtCheckMiddleware(pkgs.jwt, pkgs.mysqlClient, pkgs.cacheClient))
 	api.GET("ws", ctrls.chatCtrl.ConnectWebsocket)                  //连接webscket
 	api.GET("upload/qiniu/params", ctrls.systemCtrl.GetQiniuParams) //获取七牛云参数（上传Token，访问域名）
+	api.GET("configs", ctrls.systemCtrl.GetConfigs)                 //获取配置
 
 	api.GET("me/info", ctrls.accountCtrl.Info)                      //个人信息
 	api.PUT("me/update/password", ctrls.accountCtrl.UpdatePassword) //修改密码
@@ -261,12 +264,15 @@ func GetGinPublicEngine(ctrls *GinControllers, pkgs *Packages) (*gin.Engine, err
 	api.POST("chatGroups/kick", ctrls.chatGroupCtrl.ChatGroupKickMember)        //踢出群员
 	api.POST("chatGroups/manager", ctrls.chatGroupCtrl.ChatGroupSetManager)     //设置管理员
 	api.POST("chatGroups/banned", ctrls.chatGroupCtrl.ChatGroupBannedMember)    //成员禁言
+	api.POST("chatGroups/invite", ctrls.chatGroupCtrl.ChatGroupInviteMember)    //邀请成员
 	api.GET("chatGroups/common", ctrls.chatGroupCtrl.GetFriendCommonChatGroups) //获取好友共同群组
 
 	api.POST("chat/send", ctrls.chatCtrl.SendMessage)             //发送消息
 	api.POST("chat/revocation", ctrls.chatCtrl.RevocationMessage) //撤回消息
 	api.POST("chat/read", ctrls.chatCtrl.ReadMessage)             //已读消息
 	api.GET("chat/messages", ctrls.chatCtrl.GetMessagLogs)        //获取聊天记录
+
+	api.GET("discovers", ctrls.accountCtrl.GetDiscovers) //发现页
 
 	return router, nil
 }

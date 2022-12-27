@@ -82,7 +82,7 @@ func (ctrl *GinController) CreateChatGroup(c *gin.Context) {
 		return
 	}
 
-	err := ctrl.ChatGroupSvc.CreateChatGroup(
+	chatGroup, err := ctrl.ChatGroupSvc.CreateChatGroup(
 		c.Request.Context(),
 		c.GetUint("id"),
 		req,
@@ -93,7 +93,7 @@ func (ctrl *GinController) CreateChatGroup(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &resp.Response{Message: resp.CREATE_SUCCESS})
+	c.JSON(http.StatusOK, &resp.Response{Result: chatGroup, Message: resp.CREATE_SUCCESS})
 }
 
 // 修改群资料
@@ -392,4 +392,27 @@ func (ctrl *GinController) GetFriendCommonChatGroups(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, &resp.Response{Result: result})
+}
+
+// 群聊邀请成员
+func (ctrl *GinController) ChatGroupInviteMember(c *gin.Context) {
+	req := &models.ChatGroupToIDListReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	err := ctrl.ChatGroupSvc.ChatGroupInviteMember(
+		c.Request.Context(),
+		c.GetUint("id"),
+		req,
+	)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Message: resp.PROCESS_SUCCESS})
 }

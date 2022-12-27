@@ -68,37 +68,54 @@ func (s *Service) ConnectWebsocket(ctx *gin.Context) {
 	s.connectionsLocker.Lock()
 	delete(s.connections, accountId)
 	s.connectionsLocker.Unlock()
+
+	msg, _ := json.Marshal(models.Message{Type: models.MessageTypeOffline})
+	c.Channel <- msg
 }
 
 // 消息处理协程
 func (s *Service) ConnChannel(c *Connection) {
+	go s.UpdateOnlineStatus(c.AccountId, models.OnlineStatusOnline)
 	for msg := range c.Channel {
-		go func(msg []byte) {
-			var message *models.Message
-			if err := json.Unmarshal(msg, message); err != nil {
-				return
-			}
+		var message *models.Message
+		if err := json.Unmarshal(msg, message); err != nil {
+			break
+		}
 
-			switch message.Type {
-			case models.MessageTypeInput: //对方正在输入
-				message.FromId = c.AccountId
-				err := s.RPC.SendMessageCall(context.Background(), message)
-				if err != nil {
-					s.log.Errorf("ConnChannel MessageTypeInput RPC.SendMessageCall %v", err)
-				}
-			case models.MessageTypePing: //心跳
-				err := c.Conn.WriteJSON(msg)
-				if err != nil {
-					s.log.Errorf("ConnChannel MessageTypePing Conn.WriteJSON %v", err)
-				}
+		switch message.Type {
+		case models.MessageTypeInput: //对方正在输入
+			message.FromId = c.AccountId
+			err := s.RPC.SendMessageCall(context.Background(), message)
+			if err != nil {
+				s.log.Errorf("ConnChannel MessageTypeInput RPC.SendMessageCall %v", err)
 			}
-		}(msg)
+		case models.MessageTypePing: //心跳
+			err := c.Conn.WriteJSON(msg)
+			if err != nil {
+				s.log.Errorf("ConnChannel MessageTypePing Conn.WriteJSON %v", err)
+			}
+		case models.MessageTypeOffline: //断开连接后释放协程
+			go s.UpdateOnlineStatus(c.AccountId, models.OnlineStatusOffline)
+			return
+		}
 	}
 }
 
 // 生成客户端id
 func (s *Service) GenClientId() string {
 	return utils.Md5(fmt.Sprintf("%d", s.counter.Load()))
+}
+
+// 更新账号在线状态
+func (s *Service) UpdateOnlineStatus(accountId uint, onlineStatus models.OnlineStatus) {
+	db := s.mysqlClient.Db()
+	err := db.Model(&models.Account{}).
+		Where("id = ?", accountId).
+		UpdateColumn("online_status", models.OnlineStatusOnline).
+		Error
+	if err != nil {
+		s.log.Errorf("ConnChannel UpdateOnlineStatus %v", err)
+	}
 }
 
 // 升级http为websocket服务

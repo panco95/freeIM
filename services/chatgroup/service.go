@@ -176,7 +176,7 @@ func (s *Service) CreateChatGroup(
 	ctx context.Context,
 	accountId uint,
 	req *models.CreateChatGroupReq,
-) error {
+) (*models.ChatGroup, error) {
 	db := s.mysqlClient.Db()
 	chatGroup := &models.ChatGroup{
 		Name:              req.Name,
@@ -212,7 +212,7 @@ func (s *Service) CreateChatGroup(
 	})
 	if err != nil {
 		s.log.Errorf("CreateChatGroup Transaction %v", err)
-		return err
+		return nil, err
 	}
 
 	geoKey := "chatGroupLocation"
@@ -229,7 +229,7 @@ func (s *Service) CreateChatGroup(
 		}()
 	}
 
-	return nil
+	return chatGroup, nil
 }
 
 // 修改群资料
@@ -880,12 +880,12 @@ func (s *Service) NearChatGroups(
 
 	largeDistance := s.config.GetFloat64("near_chatgroup_distance")
 	if largeDistance == 0 {
-		largeDistance = 1000000
+		largeDistance = 1000
 	}
 
 	res, err := s.redisClient.GeoRadius(ctx, geoKey, req.Longitude, req.Latitude, &redislib.GeoRadiusQuery{
 		Radius:    largeDistance,
-		Unit:      "m",
+		Unit:      "km",
 		WithCoord: true,
 		WithDist:  true,
 		Count:     100,
@@ -910,7 +910,7 @@ func (s *Service) NearChatGroups(
 		chatGroup.Latitude = v.Latitude
 		items = append(items, &models.NearChatGroupsItem{
 			ChatGroup: chatGroup,
-			Distance:  fmt.Sprintf("%.0fm", v.Dist),
+			Distance:  fmt.Sprintf("%.2fkm", v.Dist),
 		})
 	}
 
@@ -922,4 +922,60 @@ func (s *Service) NearChatGroups(
 	}
 
 	return items, nil
+}
+
+// 群聊邀请成员
+func (s *Service) ChatGroupInviteMember(
+	ctx context.Context,
+	accountId uint,
+	req *models.ChatGroupToIDListReq,
+) error {
+	db := s.mysqlClient.Db()
+	_, isManager, isOwner, err := s.IsChatGroupMember(ctx, req.GroupId, accountId)
+	if err != nil {
+		s.log.Errorf("ChatGroupInviteMembers IsChatGroupMember %v", err)
+		return err
+	}
+	if !isOwner && !isManager {
+		return errors.New(resp.CHAT_GROUP_NOT_MANAGER)
+	}
+
+	invites := make([]*models.ChatGroupMember, 0)
+	for _, toID := range req.ToIDList {
+		isMember, _, _, err := s.IsChatGroupMember(ctx, req.GroupId, toID)
+		if err != nil {
+			s.log.Errorf("ChatGroupInviteMember IsChatGroupMember %v", err)
+			return err
+		}
+		if !isMember {
+			invites = append(invites, &models.ChatGroupMember{
+				ChatGroupId: req.GroupId,
+				AccountId:   toID,
+				Role:        models.ChatGroupMemberRoleGeneral,
+			})
+		}
+	}
+	if len(invites) > 0 {
+		err = db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&models.ChatGroupMember{}).
+				Create(invites).Error; err != nil {
+				return err
+			}
+
+			if err := tx.Model(&models.ChatGroup{}).
+				Where("id = ?", req.GroupId).
+				UpdateColumn("members", gorm.Expr("members + ?", len(invites))).
+				Error; err != nil {
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
+			s.log.Errorf("ChatGroupInviteMember Transaction %v", err)
+			return err
+		}
+	}
+
+	return nil
 }

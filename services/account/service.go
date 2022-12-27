@@ -148,6 +148,44 @@ func (s *Service) CheckCaptcha(
 	return nil
 }
 
+// 校验邀请码
+func (s *Service) CheckInviteCode(
+	ctx context.Context,
+	code string,
+) error {
+	if s.config.GetString("register_invite") == "false" {
+		return nil
+	}
+	db := s.mysqlClient.Db()
+
+	inviteCode := &models.InviteCode{}
+	err := db.Model(&models.InviteCode{}).
+		Where("code = ?", code).
+		First(inviteCode).Error
+	if err != nil {
+		s.log.Errorf("CheckInviteCode select %v", err)
+		return err
+	}
+	if inviteCode.Code == "" {
+		return errors.New(resp.INVITE_CODE_NOT_EXISTS)
+	}
+	if inviteCode.Status == models.InviteCodeStatusUsed {
+		return errors.New(resp.INVITE_CODE_USED)
+	}
+
+	go func() {
+		err := db.Model(&models.InviteCode{}).
+			Where("id = ?", inviteCode.ID).
+			UpdateColumn("status", models.InviteCodeStatusUsed).
+			Error
+		if err != nil {
+			s.log.Errorf("CheckInviteCode update %v", err)
+		}
+	}()
+
+	return nil
+}
+
 // 账号登录
 func (s *Service) BasicLogin(
 	ctx context.Context,
@@ -213,18 +251,25 @@ func (s *Service) BasicRegister(
 	ip string,
 ) (string, *models.Account, error) {
 	db := s.mysqlClient.Db()
+	// 校验验证码
 	if s.config.GetString("login_captcha") != "false" {
 		err := s.CheckCaptcha(ctx, req.CaptchaKey, req.Captcha, models.CaptchaTypeRegister)
 		if err != nil {
 			return "", nil, err
 		}
 	}
+	// 校验邀请码
+	err := s.CheckInviteCode(ctx, req.InviteCode)
+	if err != nil {
+		return "", nil, err
+	}
+	// 检测用户名是否含中文
 	if utils.IsChinese(req.Account) {
 		return "", nil, errors.New(resp.ACCOUNT_HAS_CHINESE)
 	}
 
 	exists := &models.Account{}
-	err := db.Model(&models.Account{}).
+	err = db.Model(&models.Account{}).
 		Where("username = ?", req.Account).
 		First(exists).Error
 	if err != nil {
@@ -299,6 +344,7 @@ func (s *Service) EmailOrMobileLogin(
 	ctx context.Context,
 	captchaType models.CaptchaType,
 	captcha string,
+	inviteCode string,
 	account *models.Account,
 	ip string,
 ) (string, bool, error) {
@@ -322,6 +368,11 @@ func (s *Service) EmailOrMobileLogin(
 		return "", false, err
 	}
 	if queryAccount.ID == 0 {
+		// 校验邀请码
+		err := s.CheckInviteCode(ctx, inviteCode)
+		if err != nil {
+			return "", false, err
+		}
 		account.LastLoginIp = ip
 		return s.AutoRegister(ctx, account)
 	}
@@ -521,4 +572,23 @@ func (s *Service) UpdateAccountInfo(
 	}
 
 	return nil
+}
+
+// 获取发现页
+func (s *Service) GetDiscovers(
+	ctx context.Context,
+) ([]*models.Discover, error) {
+	db := s.mysqlClient.Db()
+
+	discovers := make([]*models.Discover, 0)
+	err := db.Model(&models.Discover{}).
+		Order("`order` desc").
+		Find(&discovers).Error
+
+	if err != nil {
+		s.log.Errorf("UpdateAccountInfo update %v", err)
+		return nil, err
+	}
+
+	return discovers, nil
 }

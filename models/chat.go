@@ -30,15 +30,16 @@ var (
 	MessageStatusRevocation MessageStatus = "revocation" //撤回
 	MessageStatusFinish     MessageStatus = "finish"     //结束(例如对方正在输入完成)
 
-	MessageTypeText  MessageType = "text"  //文字
-	MessageTypePic   MessageType = "pic"   //图片
-	MessageTypeVoice MessageType = "voice" //语音
-	MessageTypeVideo MessageType = "video" //视频
-	MessageTypeGeo   MessageType = "geo"   //地理位置
-	MessageTypeFile  MessageType = "file"  //文件
-	MessageTypeRead  MessageType = "read"  //对方已读
-	MessageTypeInput MessageType = "input" //对方正在输入
-	MessageTypePing  MessageType = "ping"  //心跳
+	MessageTypeText    MessageType = "text"    //文字
+	MessageTypePic     MessageType = "pic"     //图片
+	MessageTypeVoice   MessageType = "voice"   //语音
+	MessageTypeVideo   MessageType = "video"   //视频
+	MessageTypeGeo     MessageType = "geo"     //地理位置
+	MessageTypeFile    MessageType = "file"    //文件
+	MessageTypeRead    MessageType = "read"    //对方已读
+	MessageTypeInput   MessageType = "input"   //对方正在输入
+	MessageTypePing    MessageType = "ping"    //心跳
+	MessageTypeOffline MessageType = "offline" //断开连接
 
 	MessageOpeFriend MessageOpe = "friend" //好友
 	MessageOpeGroup  MessageOpe = "group"  //群聊

@@ -79,6 +79,10 @@ type ToIDReq struct {
 	ToID uint `form:"toId" binding:"required"`
 }
 
+type ToIDListReq struct {
+	ToIDList []uint `form:"toIdList" binding:"required"`
+}
+
 type SetFriendRemarkReq struct {
 	ToIDReq
 	Remark string `form:"remark" binding:"required"`
