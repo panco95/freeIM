@@ -178,11 +178,13 @@ func NewPackages(serverID string) (pkgs *Packages) {
 		viper.SetDefault("qiniu.ak", "")
 		viper.SetDefault("qiniu.sk", "")
 		viper.SetDefault("qiniu.bucket", "")
+		viper.SetDefault("qiniu.domain", "")
 		viper.SetDefault("qiniu.tokenExpireSec", 3600)
 		qiniuClient := qiniu.New(
 			viper.GetString("qiniu.ak"),
 			viper.GetString("qiniu.sk"),
 			viper.GetString("qiniu.bucket"),
+			viper.GetString("qiniu.domain"),
 			viper.GetUint64("qiniu.tokenExpireSec"),
 		)
 		pkgs.qiniuClient = qiniuClient
@@ -213,6 +215,7 @@ func NewServices(pkgs *Packages) *Services {
 	viper.SetDefault("login.rsaPublicKey", utils.DefaultRSAPublicKey)
 	accountSvc := account.NewService(
 		pkgs.mysqlClient,
+		pkgs.redisClient,
 		pkgs.cacheClient,
 		pkgs.emailClient,
 		pkgs.smsClient,
@@ -222,11 +225,13 @@ func NewServices(pkgs *Packages) *Services {
 
 	friendSvc := friend.NewService(
 		pkgs.mysqlClient,
+		pkgs.redisClient,
 		config,
 	)
 
 	chatGroupSvc := chatgroup.NewService(
 		pkgs.mysqlClient,
+		pkgs.redisClient,
 		config,
 	)
 

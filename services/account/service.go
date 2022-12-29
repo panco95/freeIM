@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image/png"
+	"strings"
 	"time"
 
 	"im/models"
@@ -18,13 +20,16 @@ import (
 
 	"github.com/afocus/captcha"
 	redisCache "github.com/go-redis/cache/v8"
+	redislib "github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type Service struct {
 	log         *zap.SugaredLogger
 	mysqlClient *database.Client
+	redisClient *redislib.Client
 	cacheClient *redisCache.Cache
 	emailClient *email.Mail
 	smsClient   sms.Sms
@@ -34,6 +39,7 @@ type Service struct {
 
 func NewService(
 	mysqlClient *database.Client,
+	redisClient *redislib.Client,
 	cacheClient *redisCache.Cache,
 	emailClient *email.Mail,
 	smsClient sms.Sms,
@@ -43,6 +49,7 @@ func NewService(
 	return &Service{
 		log:         zap.S().With("module", "services.account.service"),
 		mysqlClient: mysqlClient,
+		redisClient: redisClient,
 		cacheClient: cacheClient,
 		emailClient: emailClient,
 		smsClient:   smsClient,
@@ -143,6 +150,118 @@ func (s *Service) CheckCaptcha(
 	return nil
 }
 
+// 校验邀请码
+func (s *Service) CheckInviteCode(
+	ctx context.Context,
+	code string,
+) error {
+	if s.config.GetString("register_invite") == "false" {
+		return nil
+	}
+	db := s.mysqlClient.Db()
+
+	inviteCode := &models.InviteCode{}
+	err := db.Model(&models.InviteCode{}).
+		Where("code = ?", code).
+		First(inviteCode).Error
+	if err != nil {
+		s.log.Errorf("CheckInviteCode select %v", err)
+		return err
+	}
+	if inviteCode.Code == "" || inviteCode.Status == models.InviteCodeStatus(models.AccountStatusLock) {
+		return errors.New(resp.INVITE_CODE_NOT_EXISTS)
+	}
+
+	go func() {
+		err := db.Model(&models.InviteCode{}).
+			Where("id = ?", inviteCode.ID).
+			UpdateColumn("times", gorm.Expr("times + 1")).
+			Error
+		if err != nil {
+			s.log.Errorf("CheckInviteCode update %v", err)
+		}
+	}()
+
+	return nil
+}
+
+// 校验IP注册限制
+func (s *Service) CheckRegisterIPLimit(
+	ctx context.Context,
+	ip string,
+) error {
+	//白名单
+	ipRegisterWhitelist := strings.Split(s.config.GetString("ip_register_whitelist"), ";")
+	if utils.Contains(ipRegisterWhitelist, ip) > -1 {
+		return nil
+	}
+	//黑名单
+	ipRegisterBlacklist := strings.Split(s.config.GetString("ip_register_blacklist"), ";")
+	if utils.Contains(ipRegisterBlacklist, ip) > -1 {
+		return errors.New(resp.IP_REGISTER_BLAKCLIST)
+	}
+	//IP注册频率
+	cacheKey := "ipRegisterLimit:" + ip
+	var limit int
+	err := s.cacheClient.Get(ctx, cacheKey, &limit)
+	if err != nil && err != redisCache.ErrCacheMiss {
+		return err
+	}
+	if limit > 0 {
+		return errors.New(resp.IP_REGISTER_LIMIT)
+	}
+
+	return nil
+}
+
+// IP注册频率+1
+func (s *Service) IPRegisterIncr(
+	ctx context.Context,
+	ip string,
+) error {
+	//获取累计注册次数
+	cacheKey := "ipRegister:" + ip
+	var cacheTimes int
+	err := s.cacheClient.Get(ctx, cacheKey, &cacheTimes)
+	if err != nil && err != redisCache.ErrCacheMiss {
+		return err
+	}
+	cacheTimes++
+	//如果注册累计次数达到频率限制：删除计数缓存创建限制缓存
+	//如果没达到频率限制：注册计数+1
+	ipRegisterRate := s.config.GetInt("ip_register_rate")
+	if ipRegisterRate > 0 {
+		if cacheTimes >= ipRegisterRate {
+			err := s.cacheClient.Delete(ctx, cacheKey)
+			if err != nil {
+				return err
+			}
+			cacheKey2 := "ipRegisterLimit:" + ip
+			err = s.cacheClient.Set(&redisCache.Item{
+				Ctx:   ctx,
+				Key:   cacheKey2,
+				Value: 1,
+				TTL:   time.Duration(s.config.GetInt("ip_register_limit")*3600*24 + 1),
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			err = s.cacheClient.Set(&redisCache.Item{
+				Ctx:   ctx,
+				Key:   cacheKey,
+				Value: cacheTimes,
+				TTL:   0,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // 账号登录
 func (s *Service) BasicLogin(
 	ctx context.Context,
@@ -150,7 +269,7 @@ func (s *Service) BasicLogin(
 	ip string,
 ) (string, *models.Account, error) {
 	db := s.mysqlClient.Db()
-	if s.config.Get("login_captcha") == "true" {
+	if s.config.GetString("login_captcha") != "false" {
 		err := s.CheckCaptcha(ctx, req.CaptchaKey, req.Captcha, models.CaptchaTypeLogin)
 		if err != nil {
 			return "", nil, err
@@ -208,18 +327,30 @@ func (s *Service) BasicRegister(
 	ip string,
 ) (string, *models.Account, error) {
 	db := s.mysqlClient.Db()
-	if s.config.Get("login_captcha") == "true" {
+	// 校验验证码
+	if s.config.GetString("login_captcha") != "false" {
 		err := s.CheckCaptcha(ctx, req.CaptchaKey, req.Captcha, models.CaptchaTypeRegister)
 		if err != nil {
 			return "", nil, err
 		}
 	}
+	// 校验邀请码
+	err := s.CheckInviteCode(ctx, req.InviteCode)
+	if err != nil {
+		return "", nil, err
+	}
+	// 校验注册频率
+	err = s.CheckRegisterIPLimit(ctx, ip)
+	if err != nil {
+		return "", nil, err
+	}
+	// 检测用户名是否含中文
 	if utils.IsChinese(req.Account) {
 		return "", nil, errors.New(resp.ACCOUNT_HAS_CHINESE)
 	}
 
 	exists := &models.Account{}
-	err := db.Model(&models.Account{}).
+	err = db.Model(&models.Account{}).
 		Where("username = ?", req.Account).
 		First(exists).Error
 	if err != nil {
@@ -238,6 +369,7 @@ func (s *Service) BasicRegister(
 	account.PasswordSalt = utils.RandStr(6)
 	account.Password = utils.Md5(utils.Md5(req.Password) + account.PasswordSalt)
 	account.LastLoginIp = ip
+	account.InviteCode = req.InviteCode
 
 	err = db.Model(&models.Account{}).
 		Create(account).Error
@@ -250,9 +382,16 @@ func (s *Service) BasicRegister(
 		models.LoginExpired,
 	)
 	if err != nil {
-		s.log.Errorf("Register jwt.BuildToken %v", err)
+		s.log.Errorf("BasicRegister jwt.BuildToken %v", err)
 		return "", nil, errors.New(resp.SERVER_ERROR)
 	}
+
+	go func() {
+		err := s.IPRegisterIncr(context.Background(), ip)
+		if err != nil {
+			s.log.Errorf("BasicRegister IPRegisterIncr %v", err)
+		}
+	}()
 
 	return token, account, nil
 }
@@ -294,6 +433,7 @@ func (s *Service) EmailOrMobileLogin(
 	ctx context.Context,
 	captchaType models.CaptchaType,
 	captcha string,
+	inviteCode string,
 	account *models.Account,
 	ip string,
 ) (string, bool, error) {
@@ -317,7 +457,19 @@ func (s *Service) EmailOrMobileLogin(
 		return "", false, err
 	}
 	if queryAccount.ID == 0 {
+		// 校验邀请码
+		err := s.CheckInviteCode(ctx, inviteCode)
+		if err != nil {
+			return "", false, err
+		}
+		// 校验注册频率
+		err = s.CheckRegisterIPLimit(ctx, ip)
+		if err != nil {
+			return "", false, err
+		}
+
 		account.LastLoginIp = ip
+		account.InviteCode = inviteCode
 		return s.AutoRegister(ctx, account)
 	}
 	if queryAccount.Status == models.AccountStatusLock {
@@ -378,9 +530,16 @@ func (s *Service) AutoRegister(
 		models.LoginExpired,
 	)
 	if err != nil {
-		s.log.Errorf("Register jwt.BuildToken %v", err)
+		s.log.Errorf("AutoRegister jwt.BuildToken %v", err)
 		return "", false, errors.New(resp.SERVER_ERROR)
 	}
+
+	go func() {
+		err := s.IPRegisterIncr(context.Background(), account.LastLoginIp)
+		if err != nil {
+			s.log.Errorf("AutoRegister IPRegisterIncr %v", err)
+		}
+	}()
 
 	return token, true, nil
 }
@@ -475,7 +634,7 @@ func (s *Service) UpdatePassword(
 	return nil
 }
 
-// 设置密码
+// 更新用户信息
 func (s *Service) UpdateAccountInfo(
 	ctx context.Context,
 	accountId uint,
@@ -485,13 +644,54 @@ func (s *Service) UpdateAccountInfo(
 	err := db.Model(&models.Account{}).
 		Where("id = ?", accountId).
 		Updates(models.Account{
-			Nickname: req.Nickname,
-			Avatar:   req.Avatar,
+			Nickname:  req.Nickname,
+			Avatar:    req.Avatar,
+			Longitude: req.Longitude,
+			Latitude:  req.Latitude,
+			Country:   req.Country,
+			Province:  req.Province,
+			City:      req.City,
+			District:  req.District,
+			Gender:    req.Gender,
+			Intro:     req.Intro,
 		}).Error
 	if err != nil {
 		s.log.Errorf("UpdateAccountInfo update %v", err)
 		return err
 	}
 
+	geoKey := "accountLocation"
+	if req.Latitude != 0 && req.Longitude != 0 {
+		go func() {
+			err := s.redisClient.GeoAdd(context.Background(), geoKey, &redislib.GeoLocation{
+				Name:      fmt.Sprintf("%d", accountId),
+				Longitude: req.Longitude,
+				Latitude:  req.Latitude,
+			}).Err()
+			if err != nil {
+				s.log.Errorf("UpdateAccountInfo geoadd %v", err)
+			}
+		}()
+	}
+
 	return nil
+}
+
+// 获取发现页
+func (s *Service) GetDiscovers(
+	ctx context.Context,
+) ([]*models.Discover, error) {
+	db := s.mysqlClient.Db()
+
+	discovers := make([]*models.Discover, 0)
+	err := db.Model(&models.Discover{}).
+		Order("`order` desc").
+		Find(&discovers).Error
+
+	if err != nil {
+		s.log.Errorf("UpdateAccountInfo update %v", err)
+		return nil, err
+	}
+
+	return discovers, nil
 }

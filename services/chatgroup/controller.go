@@ -49,6 +49,30 @@ func (ctrl *GinController) SearchChatGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, &resp.Response{Result: result})
 }
 
+// 附近的群
+func (ctrl *GinController) NearChatGroups(c *gin.Context) {
+	req := &models.NearChatGroupsReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	items, err := ctrl.ChatGroupSvc.NearChatGroups(c.Request.Context(), c.GetUint("id"), req)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	res := resp.PageResult{
+		Items: items,
+		Total: int64(len(items)),
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Result: res})
+}
+
 // 创建群聊
 func (ctrl *GinController) CreateChatGroup(c *gin.Context) {
 	req := &models.CreateChatGroupReq{}
@@ -58,7 +82,7 @@ func (ctrl *GinController) CreateChatGroup(c *gin.Context) {
 		return
 	}
 
-	err := ctrl.ChatGroupSvc.CreateChatGroup(
+	chatGroup, err := ctrl.ChatGroupSvc.CreateChatGroup(
 		c.Request.Context(),
 		c.GetUint("id"),
 		req,
@@ -69,7 +93,7 @@ func (ctrl *GinController) CreateChatGroup(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &resp.Response{Message: resp.CREATE_SUCCESS})
+	c.JSON(http.StatusOK, &resp.Response{Result: chatGroup, Message: resp.CREATE_SUCCESS})
 }
 
 // 修改群资料
@@ -329,6 +353,57 @@ func (ctrl *GinController) ChatGroupBannedMember(c *gin.Context) {
 	}
 
 	err := ctrl.ChatGroupSvc.ChatGroupBannedMember(
+		c.Request.Context(),
+		c.GetUint("id"),
+		req,
+	)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Message: resp.PROCESS_SUCCESS})
+}
+
+// 获取好友共同群组
+func (ctrl *GinController) GetFriendCommonChatGroups(c *gin.Context) {
+	req := &models.ToIDReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	items, err := ctrl.ChatGroupSvc.GetFriendCommonChatGroups(
+		c.Request.Context(),
+		c.GetUint("id"),
+		req,
+	)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	result := resp.PageResult{
+		Items: items,
+		Total: int64(len(items)),
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Result: result})
+}
+
+// 群聊邀请成员
+func (ctrl *GinController) ChatGroupInviteMember(c *gin.Context) {
+	req := &models.ChatGroupToIDListReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	err := ctrl.ChatGroupSvc.ChatGroupInviteMember(
 		c.Request.Context(),
 		c.GetUint("id"),
 		req,

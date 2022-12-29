@@ -3,13 +3,16 @@ package chatgroup
 import (
 	"context"
 	"errors"
+	"fmt"
 	"im/models"
 	"im/pkg/database"
 	"im/pkg/resp"
+	"im/pkg/utils"
 	"im/services/system/config"
 	"strconv"
 	"time"
 
+	redislib "github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -17,16 +20,19 @@ import (
 type Service struct {
 	log         *zap.SugaredLogger
 	mysqlClient *database.Client
+	redisClient *redislib.Client
 	config      *config.Config
 }
 
 func NewService(
 	mysqlClient *database.Client,
+	redisClient *redislib.Client,
 	config *config.Config,
 ) *Service {
 	return &Service{
 		log:         zap.S().With("module", "services.chat_group.service"),
 		mysqlClient: mysqlClient,
+		redisClient: redisClient,
 		config:      config,
 	}
 }
@@ -170,19 +176,38 @@ func (s *Service) CreateChatGroup(
 	ctx context.Context,
 	accountId uint,
 	req *models.CreateChatGroupReq,
-) error {
+) (*models.ChatGroup, error) {
 	db := s.mysqlClient.Db()
+
+	chatGroupCreateLimit := s.config.GetInt("chatgroup_create_limit")
+	chatGroupMembersLimit := s.config.GetInt("chatgroup_members_limit")
+	count, err := s.GetChatGorupNumberByOwner(ctx, accountId)
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 && count >= int64(chatGroupCreateLimit) {
+		return nil, errors.New(resp.CHAT_GROUP_CREATE_LIMIT)
+	}
+
 	chatGroup := &models.ChatGroup{
 		Name:              req.Name,
 		Intro:             req.Intro,
+		Avatar:            req.Avatar,
 		Members:           1,
-		MembersLimit:      models.DefaultChatgroupMaxMembers,
+		MembersLimit:      uint(chatGroupMembersLimit),
+		Latitude:          req.Latitude,
+		Longitude:         req.Longitude,
+		Country:           req.Country,
+		Province:          req.Province,
+		City:              req.City,
+		District:          req.District,
+		Address:           req.Address,
 		DisableAddMember:  req.DisableAddMember,
 		DisableViewMember: req.DisableViewMember,
 		DisbaleAddGroup:   req.DisbaleAddGroup,
 		EnbaleBeforeMsg:   req.EnbaleBeforeMsg,
 	}
-	err := db.Transaction(func(tx *gorm.DB) error {
+	err = db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(chatGroup).Error; err != nil {
 			return err
 		}
@@ -199,10 +224,24 @@ func (s *Service) CreateChatGroup(
 	})
 	if err != nil {
 		s.log.Errorf("CreateChatGroup Transaction %v", err)
-		return err
+		return nil, err
 	}
 
-	return nil
+	geoKey := "chatGroupLocation"
+	if req.Latitude != 0 && req.Longitude != 0 {
+		go func() {
+			err := s.redisClient.GeoAdd(context.Background(), geoKey, &redislib.GeoLocation{
+				Name:      fmt.Sprintf("%d", chatGroup.ID),
+				Longitude: req.Longitude,
+				Latitude:  req.Latitude,
+			}).Err()
+			if err != nil {
+				s.log.Errorf("CreateChatGroup geoadd %v", err)
+			}
+		}()
+	}
+
+	return chatGroup, nil
 }
 
 // 修改群资料
@@ -222,18 +261,49 @@ func (s *Service) EditChatGroup(
 	}
 	err = db.Model(&models.ChatGroup{}).
 		Where("id = ?", req.GroupId).
-		Select("name", "intro", "disable_add_member", "disable_view_member", "disbale_add_group", "enbale_before_msg").
 		Updates(&models.ChatGroup{
-			Name:              req.Name,
-			Intro:             req.Intro,
+			Name:      req.Name,
+			Intro:     req.Intro,
+			Avatar:    req.Avatar,
+			Longitude: req.Longitude,
+			Latitude:  req.Latitude,
+			Address:   req.Address,
+			Country:   req.Country,
+			Province:  req.Province,
+			City:      req.City,
+			District:  req.District,
+		}).Error
+	if err != nil {
+		s.log.Errorf("EditChatGroup update-1 %v", err)
+		return err
+	}
+
+	err = db.Model(&models.ChatGroup{}).
+		Where("id = ?", req.GroupId).
+		Select("disable_add_member", "disable_view_member", "disable_add_group", "enable_before_msg").
+		Updates(&models.ChatGroup{
 			DisableAddMember:  req.DisableAddMember,
 			DisableViewMember: req.DisableViewMember,
 			DisbaleAddGroup:   req.DisbaleAddGroup,
 			EnbaleBeforeMsg:   req.EnbaleBeforeMsg,
 		}).Error
 	if err != nil {
-		s.log.Errorf("EditChatGroup update %v", err)
+		s.log.Errorf("EditChatGroup update-2 %v", err)
 		return err
+	}
+
+	geoKey := "chatGroupLocation"
+	if req.Latitude != 0 && req.Longitude != 0 {
+		go func() {
+			err := s.redisClient.GeoAdd(context.Background(), geoKey, &redislib.GeoLocation{
+				Name:      fmt.Sprintf("%d", req.GroupId),
+				Longitude: req.Longitude,
+				Latitude:  req.Latitude,
+			}).Err()
+			if err != nil {
+				s.log.Errorf("CreateChatGroup geoadd %v", err)
+			}
+		}()
 	}
 
 	return nil
@@ -756,4 +826,187 @@ func (s *Service) ChatGroupBannedMember(
 	}
 
 	return nil
+}
+
+// 获取好友共同群组
+func (s *Service) GetFriendCommonChatGroups(
+	ctx context.Context,
+	accountId uint,
+	req *models.ToIDReq,
+) ([]*models.ChatGroup, error) {
+	db := s.mysqlClient.Db()
+
+	// 好友加的群
+	friendChatGroupMembers := make([]*models.ChatGroupMember, 0)
+	err := db.Model(&models.ChatGroupMember{}).
+		Where("account_id = ?", req.ToID).
+		Find(&friendChatGroupMembers).Error
+	if err != nil {
+		s.log.Errorf("GetFriendCommonChatGroups select friend %v", err)
+		return nil, err
+	}
+	friendGropIdList := make([]uint, 0)
+	for _, v := range friendChatGroupMembers {
+		friendGropIdList = append(friendGropIdList, v.ChatGroupId)
+	}
+
+	// 我加的群
+	selfChatGroupMembers := make([]*models.ChatGroupMember, 0)
+	err = db.Model(&models.ChatGroupMember{}).
+		Where("account_id = ?", accountId).
+		Find(&selfChatGroupMembers).Error
+	if err != nil {
+		s.log.Errorf("GetFriendCommonChatGroups select self %v", err)
+		return nil, err
+	}
+	selfGropIdList := make([]uint, 0)
+	for _, v := range selfChatGroupMembers {
+		selfGropIdList = append(selfGropIdList, v.ChatGroupId)
+	}
+
+	// 查询公共群聊
+	commonChatGroupIdList := utils.IntersectUint(friendGropIdList, selfGropIdList)
+	chatGroups := make([]*models.ChatGroup, 0)
+	err = db.Model(&models.ChatGroup{}).
+		Where("id in ?", commonChatGroupIdList).
+		Find(&chatGroups).Error
+	if err != nil {
+		s.log.Errorf("GetFriendCommonChatGroups select common %v", err)
+		return nil, err
+	}
+	for _, v := range chatGroups {
+		v.CreatedAt = nil
+		v.UpdatedAt = nil
+	}
+
+	return chatGroups, nil
+}
+
+// 附近的群
+func (s *Service) NearChatGroups(
+	ctx context.Context,
+	accountId uint,
+	req *models.NearChatGroupsReq,
+) ([]*models.NearChatGroupsItem, error) {
+	db := s.mysqlClient.Db()
+	geoKey := "chatGroupLocation"
+
+	largeDistance := s.config.GetFloat64("near_chatgroup_distance")
+	if largeDistance == 0 {
+		largeDistance = 1000
+	}
+
+	res, err := s.redisClient.GeoRadius(ctx, geoKey, req.Longitude, req.Latitude, &redislib.GeoRadiusQuery{
+		Radius:    largeDistance,
+		Unit:      "km",
+		WithCoord: true,
+		WithDist:  true,
+		Count:     100,
+		Sort:      "ASC",
+	}).Result()
+	if err != nil {
+		s.log.Errorf("NearChatGroups cmd.GeoRadius %v", err)
+		return nil, err
+	}
+
+	items := make([]*models.NearChatGroupsItem, 0)
+	for _, v := range res {
+		chatGroup := &models.ChatGroup{}
+		err := db.Model(&models.ChatGroup{}).
+			Where("id = ?", v.Name).
+			First(chatGroup).Error
+		if err != nil {
+			s.log.Errorf("NearChatGroups chatGroup select %v", err)
+			continue
+		}
+		chatGroup.Longitude = v.Longitude
+		chatGroup.Latitude = v.Latitude
+		items = append(items, &models.NearChatGroupsItem{
+			ChatGroup: chatGroup,
+			Distance:  fmt.Sprintf("%.2fkm", v.Dist),
+		})
+	}
+
+	for _, v := range items {
+		if v.ChatGroup != nil {
+			v.ChatGroup.CreatedAt = nil
+			v.ChatGroup.UpdatedAt = nil
+		}
+	}
+
+	return items, nil
+}
+
+// 群聊邀请成员
+func (s *Service) ChatGroupInviteMember(
+	ctx context.Context,
+	accountId uint,
+	req *models.ChatGroupToIDListReq,
+) error {
+	db := s.mysqlClient.Db()
+	_, isManager, isOwner, err := s.IsChatGroupMember(ctx, req.GroupId, accountId)
+	if err != nil {
+		s.log.Errorf("ChatGroupInviteMembers IsChatGroupMember %v", err)
+		return err
+	}
+	if !isOwner && !isManager {
+		return errors.New(resp.CHAT_GROUP_NOT_MANAGER)
+	}
+
+	invites := make([]*models.ChatGroupMember, 0)
+	for _, toID := range req.ToIDList {
+		isMember, _, _, err := s.IsChatGroupMember(ctx, req.GroupId, toID)
+		if err != nil {
+			s.log.Errorf("ChatGroupInviteMember IsChatGroupMember %v", err)
+			return err
+		}
+		if !isMember {
+			invites = append(invites, &models.ChatGroupMember{
+				ChatGroupId: req.GroupId,
+				AccountId:   toID,
+				Role:        models.ChatGroupMemberRoleGeneral,
+			})
+		}
+	}
+	if len(invites) > 0 {
+		err = db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&models.ChatGroupMember{}).
+				Create(invites).Error; err != nil {
+				return err
+			}
+
+			if err := tx.Model(&models.ChatGroup{}).
+				Where("id = ?", req.GroupId).
+				UpdateColumn("members", gorm.Expr("members + ?", len(invites))).
+				Error; err != nil {
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
+			s.log.Errorf("ChatGroupInviteMember Transaction %v", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+// 获取群主创建的群聊数量
+func (s *Service) GetChatGorupNumberByOwner(
+	ctx context.Context,
+	accountId uint,
+) (int64, error) {
+	db := s.mysqlClient.Db()
+	var count int64 = 0
+	err := db.Model(&models.ChatGroupMember{}).
+		Where("account_id = ?", accountId).
+		Where("role = ?", models.ChatGroupMemberRoleOwner).
+		Count(&count).Error
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }

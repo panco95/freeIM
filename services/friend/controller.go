@@ -372,3 +372,27 @@ func (ctrl *GinController) VerifyFriend(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, &resp.Response{Result: result})
 }
+
+// 附近的人
+func (ctrl *GinController) NearFriends(c *gin.Context) {
+	req := &models.NearFriendsReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	items, err := ctrl.FriendSvc.NearFriends(c.Request.Context(), c.GetUint("id"), req)
+	if err != nil {
+		_ = c.Error(err).
+			SetType(gin.ErrorTypePublic)
+		return
+	}
+
+	res := resp.PageResult{
+		Items: items,
+		Total: int64(len(items)),
+	}
+
+	c.JSON(http.StatusOK, &resp.Response{Result: res})
+}

@@ -8,19 +8,27 @@ type Friend struct {
 	AccountId     uint           `gorm:"column:account_id;not null;default:0;index:account_id;" json:"-"` //账号id
 	FriendId      uint           `gorm:"column:friend_id;not null;default:0;index:friend_id" json:"-"`    //好友id
 	Account       *Account       `gorm:"foreignKey:FriendId" json:"account"`
-	FriendsGroups []*FriendGroup `gorm:"many2many:friend_group_friends;foreignKey:FriendId;joinForeignKey:FriendId;" json:"friendGroups"` //好友在哪些分组
-	Remark        string         `gorm:"column:remark;not null;default:'';type:varchar(100);" json:"remark"`                              //好友备注
-	Label         string         `gorm:"column:label;not null;default:'';type:varchar(1000);" json:"label"`                               //好友自定义字段(标签)
-	Blacklist     bool           `gorm:"column:blacklist;not null" json:"-"`                                                              //是否黑名单
+	FriendsGroups []*FriendGroup `gorm:"many2many:im_friend_group_friends;foreignKey:FriendId;joinForeignKey:FriendId;" json:"friendGroups"` //好友在哪些分组
+	Remark        string         `gorm:"column:remark;not null;default:'';type:varchar(100);" json:"remark"`                                 //好友备注
+	Label         string         `gorm:"column:label;not null;default:'';type:varchar(1000);" json:"label"`                                  //好友自定义字段(标签)
+	Blacklist     bool           `gorm:"column:blacklist;not null" json:"-"`                                                                 //是否黑名单
+}
+
+func (Friend) TableName() string {
+	return "im_friends"
 }
 
 // 好友分组表
 type FriendGroup struct {
 	Model
-	AccountId uint      `gorm:"column:account_id;not null;default:0;index:account_id;" json:"-"`                           //账号id
-	Friends   []*Friend `gorm:"many2many:friend_group_friends;References:FriendId;joinReferences:FriendId" json:"friends"` //分组下的好友
-	Name      string    `gorm:"column:name;not null;default:'';" json:"name"`                                              //分组名称
-	Order     uint      `gorm:"column:order;not null;default:0;" json:"-"`                                                 //排序
+	AccountId uint      `gorm:"column:account_id;not null;default:0;index:account_id;" json:"-"`                              //账号id
+	Friends   []*Friend `gorm:"many2many:im_friend_group_friends;References:FriendId;joinReferences:FriendId" json:"friends"` //分组下的好友
+	Name      string    `gorm:"column:name;not null;default:'';" json:"name"`                                                 //分组名称
+	Order     uint      `gorm:"column:order;not null;default:0;" json:"-"`                                                    //排序
+}
+
+func (FriendGroup) TableName() string {
+	return "im_friend_groups"
 }
 
 type ApplyStatus string
@@ -44,6 +52,10 @@ type FriendApply struct {
 	Replytime     *time.Time  `gorm:"column:reply_time;" json:"replyTime"`                                           //回复时间
 }
 
+func (FriendApply) TableName() string {
+	return "im_friend_applies"
+}
+
 type SearchFriendReq struct {
 	Account string `form:"account" binding:"required"`
 }
@@ -65,6 +77,10 @@ type FriendListReq struct {
 
 type ToIDReq struct {
 	ToID uint `form:"toId" binding:"required"`
+}
+
+type ToIDListReq struct {
+	ToIDList []uint `form:"toIdList" binding:"required"`
 }
 
 type SetFriendRemarkReq struct {
@@ -99,4 +115,14 @@ type RenameFriendGroupReq struct {
 type VerifyFriendRes struct {
 	IsFriend    bool `json:"isFriend"`
 	IsBlacklist bool `json:"isBlacklist"`
+}
+
+type NearFriendsReq struct {
+	Longitude float64 `form:"longitude" binding:"required"`
+	Latitude  float64 `form:"latitude" binding:"required"`
+}
+
+type NearFriendsItem struct {
+	*Account
+	Distance string `json:"distance"`
 }

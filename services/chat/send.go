@@ -10,7 +10,7 @@ func (s *Service) Send(ctx context.Context, msg *models.Message) {
 	case models.MessageOpeFriend, models.MessageOpeSystem:
 		go s.SendToAccountId(ctx, msg.ToId, msg)
 	case models.MessageOpeGroup:
-		idList, err := s.chatGroupSvc.FindChatGroupManagerIDList(ctx, msg.ToId)
+		idList, err := s.chatGroupSvc.FindChatGroupMemberIDList(ctx, msg.ToId)
 		if err != nil {
 			s.log.Errorf("Send OpeGroup findMembers %v", err)
 			return

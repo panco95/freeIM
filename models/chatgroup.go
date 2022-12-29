@@ -2,10 +2,6 @@ package models
 
 import "time"
 
-var (
-	DefaultChatgroupMaxMembers uint = 500 //默认群成员最大人数
-)
-
 // 群聊表
 type ChatGroup struct {
 	Model
@@ -16,10 +12,21 @@ type ChatGroup struct {
 	MembersLimit      uint               `gorm:"column:members_limit;not null;default:0;" json:"members_limit"`               //群内成员数上限(0：无限)
 	MembersList       []*ChatGroupMember `gorm:"-" json:"membersList,omitempty"`                                              //成员列表
 	SelfInfo          *ChatGroupSelfInfo `gorm:"-" json:"selfInfo,omitempty"`                                                 //自身信息
+	Longitude         float64            `gorm:"column:longitude;not null;default:0;type:decimal(9,6)" json:"longitude"`      //经度
+	Latitude          float64            `gorm:"column:latitude;not null;default:0;type:decimal(9,6)" json:"latitude"`        //纬度
+	Country           string             `gorm:"column:country;not null;default:'';type:varchar(50)" json:"country"`          //国家
+	Province          string             `gorm:"column:province;not null;default:'';type:varchar(50)" json:"province"`        //省份
+	City              string             `gorm:"column:city;not null;default:'';type:varchar(50)" json:"city"`                //城市
+	District          string             `gorm:"column:district;not null;default:'';type:varchar(50)" json:"district"`        //区县
+	Address           string             `gorm:"column:address;not null;default:'';type:varchar(10000)" json:"address"`       //详细地址
 	DisableAddMember  bool               `gorm:"column:disable_add_member;not null;default:false;" json:"disableAddMember"`   //禁止加成员好友
 	DisableViewMember bool               `gorm:"column:disable_view_member;not null;default:false;" json:"disableViewMember"` //禁用查看成员资料
 	DisbaleAddGroup   bool               `gorm:"column:disable_add_group;not null;default:false;" json:"disbaleAddGroup"`     //禁用主动申请入群
 	EnbaleBeforeMsg   bool               `gorm:"column:enable_before_msg;not null;default:false;" json:"enbaleBeforeMsg"`     //是否开启加群之前的漫游消息
+}
+
+func (ChatGroup) TableName() string {
+	return "im_chat_groups"
 }
 
 // 群聊自身信息
@@ -48,6 +55,10 @@ type ChatGroupMember struct {
 	IsBanned       bool                `gorm:"-" json:"isBanned"`                                   //是否禁言中
 }
 
+func (ChatGroupMember) TableName() string {
+	return "im_chat_group_members"
+}
+
 // 加群申请表
 type ChatGroupJoin struct {
 	Model
@@ -62,18 +73,29 @@ type ChatGroupJoin struct {
 	Replytime          *time.Time  `gorm:"column:reply_time;" json:"replyTime"`                                           //回复时间
 }
 
+func (ChatGroupJoin) TableName() string {
+	return "im_chat_group_joins"
+}
+
 type SearchChatGroupReq struct {
 	Name string `form:"name" binding:"required"`
 }
 
 type CreateChatGroupReq struct {
-	Name              string `form:"name" binding:"required"`
-	Avatar            string `form:"avatar"`
-	Intro             string `form:"intro" binding:"required"`
-	DisableAddMember  bool   `form:"disableAddMember"`
-	DisableViewMember bool   `form:"disableViewMember"`
-	DisbaleAddGroup   bool   `form:"disbaleAddGroup"`
-	EnbaleBeforeMsg   bool   `form:"enbaleBeforeMsg"`
+	Name              string  `form:"name" binding:"required"`
+	Avatar            string  `form:"avatar"`
+	Intro             string  `form:"intro"`
+	Longitude         float64 `form:"longitude"`
+	Latitude          float64 `form:"latitude"`
+	Country           string  `form:"country"`
+	Province          string  `form:"province"`
+	City              string  `form:"city"`
+	District          string  `form:"district"`
+	Address           string  `form:"address"`
+	DisableAddMember  bool    `form:"disableAddMember"`
+	DisableViewMember bool    `form:"disableViewMember"`
+	DisbaleAddGroup   bool    `form:"disbaleAddGroup"`
+	EnbaleBeforeMsg   bool    `form:"enbaleBeforeMsg"`
 }
 
 type EditChatGroupReq struct {
@@ -102,6 +124,11 @@ type ChatGroupToIDReq struct {
 	ToIDReq
 }
 
+type ChatGroupToIDListReq struct {
+	GroupIdReq
+	ToIDListReq
+}
+
 type ChatGroupSetManagerReq struct {
 	GroupIdReq
 	ToIDReq
@@ -112,4 +139,14 @@ type ChatGroupBannedMemberReq struct {
 	GroupIdReq
 	ToIDReq
 	Minute uint `form:"minute" binding:"required"`
+}
+
+type NearChatGroupsReq struct {
+	Longitude float64 `form:"longitude" binding:"required"`
+	Latitude  float64 `form:"latitude" binding:"required"`
+}
+
+type NearChatGroupsItem struct {
+	*ChatGroup
+	Distance string `json:"distance"`
 }

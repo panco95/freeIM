@@ -72,7 +72,7 @@ func (ctrl *GinController) RevocationMessage(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &resp.Response{Message: resp.SUCCESS})
+	c.JSON(http.StatusOK, &resp.Response{Message: resp.SUCCESS, Result: req})
 }
 
 // 已读消息
@@ -100,7 +100,7 @@ func (ctrl *GinController) ReadMessage(c *gin.Context) {
 
 // 获取消息记录
 func (ctrl *GinController) GetMessagLogs(c *gin.Context) {
-	req := &models.ToIDReq{}
+	req := &models.GetMessagesReq{}
 	p, _ := c.Get("pagination")
 	page := p.(*middlewares.Pagination)
 

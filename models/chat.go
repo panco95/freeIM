@@ -12,6 +12,10 @@ type Message struct {
 	IsRead    bool          `gorm:"column:is_read;not null;default:false" json:"isRead"`           //消息是否已读
 }
 
+func (Message) TableName() string {
+	return "im_messages"
+}
+
 type MessageLog struct {
 	*Message
 	Self bool `json:"self"` //是否自己发的
@@ -26,14 +30,16 @@ var (
 	MessageStatusRevocation MessageStatus = "revocation" //撤回
 	MessageStatusFinish     MessageStatus = "finish"     //结束(例如对方正在输入完成)
 
-	MessageTypeText  MessageType = "text"  //文字
-	MessageTypePic   MessageType = "pic"   //图片
-	MessageTypeVoice MessageType = "voice" //语音
-	MessageTypeVideo MessageType = "video" //视频
-	MessageTypeGeo   MessageType = "geo"   //地理位置
-	MessageTypeFile  MessageType = "file"  //文件
-	MessageTypeRead  MessageType = "read"  //对方已读
-	MessageTypeInput MessageType = "input" //对方正在输入
+	MessageTypeText    MessageType = "text"    //文字
+	MessageTypePic     MessageType = "pic"     //图片
+	MessageTypeVoice   MessageType = "voice"   //语音
+	MessageTypeVideo   MessageType = "video"   //视频
+	MessageTypeGeo     MessageType = "geo"     //地理位置
+	MessageTypeFile    MessageType = "file"    //文件
+	MessageTypeRead    MessageType = "read"    //对方已读
+	MessageTypeInput   MessageType = "input"   //对方正在输入
+	MessageTypePing    MessageType = "ping"    //心跳
+	MessageTypeOffline MessageType = "offline" //断开连接
 
 	MessageOpeFriend MessageOpe = "friend" //好友
 	MessageOpeGroup  MessageOpe = "group"  //群聊
@@ -52,4 +58,9 @@ type RevocationMessageReq struct {
 	ToIDReq
 	Id  uint       `form:"id" binding:"required"`  //消息ID
 	Ope MessageOpe `form:"ope" binding:"required"` //消息通道
+}
+
+type GetMessagesReq struct {
+	ToIDReq
+	MessageType MessageType `form:"messageType"`
 }
