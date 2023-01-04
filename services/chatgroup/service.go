@@ -8,8 +8,10 @@ import (
 	"im/pkg/database"
 	"im/pkg/resp"
 	"im/pkg/utils"
+	"im/services/chat"
 	"im/services/system/config"
 	"strconv"
+	"strings"
 	"time"
 
 	redislib "github.com/go-redis/redis/v8"
@@ -19,18 +21,21 @@ import (
 
 type Service struct {
 	log         *zap.SugaredLogger
+	chatSvc     *chat.Service
 	mysqlClient *database.Client
 	redisClient *redislib.Client
 	config      *config.Config
 }
 
 func NewService(
+	chatSvc *chat.Service,
 	mysqlClient *database.Client,
 	redisClient *redislib.Client,
 	config *config.Config,
 ) *Service {
 	return &Service{
 		log:         zap.S().With("module", "services.chat_group.service"),
+		chatSvc:     chatSvc,
 		mysqlClient: mysqlClient,
 		redisClient: redisClient,
 		config:      config,
@@ -104,7 +109,7 @@ func (s *Service) FindChatGroupJoin(
 	return chatGroupApply, nil
 }
 
-// 找出群聊所有的管理员ID
+// 找出群聊所有的管理员ID列表
 func (s *Service) FindChatGroupManagerIDList(
 	ctx context.Context,
 	chatGroupId uint,
@@ -114,27 +119,6 @@ func (s *Service) FindChatGroupManagerIDList(
 	err := db.Model(&models.ChatGroupMember{}).
 		Where("chat_group_id = ?", chatGroupId).
 		Where("role = ? OR role = ?", models.ChatGroupMemberRoleManager, models.ChatGroupMemberRoleOwner).
-		Find(&chatGroupMembers).Error
-	if err != nil {
-		return nil, err
-	}
-
-	idList := make([]uint, 0)
-	for _, v := range chatGroupMembers {
-		idList = append(idList, v.AccountId)
-	}
-	return idList, nil
-}
-
-// 找出群聊群员ID
-func (s *Service) FindChatGroupMemberIDList(
-	ctx context.Context,
-	chatGroupId uint,
-) ([]uint, error) {
-	db := s.mysqlClient.Db()
-	chatGroupMembers := make([]*models.ChatGroupMember, 0)
-	err := db.Model(&models.ChatGroupMember{}).
-		Where("chat_group_id = ?", chatGroupId).
 		Find(&chatGroupMembers).Error
 	if err != nil {
 		return nil, err
@@ -177,6 +161,10 @@ func (s *Service) CreateChatGroup(
 	accountId uint,
 	req *models.CreateChatGroupReq,
 ) (*models.ChatGroup, error) {
+	if s.config.GetString("create_chatgroup") != "true" {
+		return nil, errors.New(resp.CHAT_GROUP_CREATE_OFF)
+	}
+
 	db := s.mysqlClient.Db()
 
 	chatGroupCreateLimit := s.config.GetInt("chatgroup_create_limit")
@@ -206,6 +194,9 @@ func (s *Service) CreateChatGroup(
 		DisableViewMember: req.DisableViewMember,
 		DisbaleAddGroup:   req.DisbaleAddGroup,
 		EnbaleBeforeMsg:   req.EnbaleBeforeMsg,
+	}
+	if chatGroup.Avatar == "" {
+		chatGroup.Avatar = s.config.GetString("default_chatgroup_avatar")
 	}
 	err = db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(chatGroup).Error; err != nil {
@@ -350,8 +341,9 @@ func (s *Service) JoinChatGroup(
 		return err
 	}
 	for _, v := range idList {
-		managerAccountList += strconv.Itoa(int(v))
+		managerAccountList += "," + strconv.Itoa(int(v))
 	}
+	managerAccountList = strings.Trim(managerAccountList, ",")
 	err = db.Create(&models.ChatGroupJoin{
 		AccountId:          accountId,
 		ChatGroupId:        req.GroupId,
@@ -362,6 +354,22 @@ func (s *Service) JoinChatGroup(
 		s.log.Errorf("JoinChatGroup Create %v", err)
 		return err
 	}
+
+	// 实时通知管理员有新的加群请求
+	go func() {
+		message := &models.Message{
+			FromId: req.GroupId,
+			Ope:    models.MessageOpeSystem,
+			Type:   models.MessageTypeJoinGroup,
+		}
+		for _, v := range idList {
+			message.ToId = v
+			err := s.chatSvc.RPC.SendMessageCall(context.Background(), message)
+			if err != nil {
+				s.log.Errorf("JoinChatGroup send %v", err)
+			}
+		}
+	}()
 
 	return nil
 }

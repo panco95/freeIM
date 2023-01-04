@@ -7,6 +7,7 @@ import (
 	"im/models"
 	"im/pkg/database"
 	"im/pkg/resp"
+	"im/services/chat"
 	"im/services/system/config"
 
 	redislib "github.com/go-redis/redis/v8"
@@ -16,18 +17,21 @@ import (
 
 type Service struct {
 	log         *zap.SugaredLogger
+	chatSvc     *chat.Service
 	mysqlClient *database.Client
 	redisClient *redislib.Client
 	config      *config.Config
 }
 
 func NewService(
+	chatSvc *chat.Service,
 	mysqlClient *database.Client,
 	redisClient *redislib.Client,
 	config *config.Config,
 ) *Service {
 	return &Service{
 		log:         zap.S().With("module", "services.friend.service"),
+		chatSvc:     chatSvc,
 		mysqlClient: mysqlClient,
 		redisClient: redisClient,
 		config:      config,
@@ -65,6 +69,10 @@ func (s *Service) AddFriend(
 	accountId uint,
 	req *models.AddFriendReq,
 ) error {
+	if s.config.GetString("add_freind") != "true" {
+		return errors.New(resp.FRIEND_ADD_OFF)
+	}
+
 	db := s.mysqlClient.Db()
 
 	friend := &models.Friend{}
@@ -102,6 +110,19 @@ func (s *Service) AddFriend(
 	if err != nil {
 		return err
 	}
+
+	// 通知对方有新的好友请求
+	go func() {
+		err := s.chatSvc.RPC.SendMessageCall(context.Background(), &models.Message{
+			FromId: accountId,
+			ToId:   req.ToID,
+			Ope:    models.MessageOpeSystem,
+			Type:   models.MessageTypeAddFriend,
+		})
+		if err != nil {
+			s.log.Errorf("AddFriend send %v", err)
+		}
+	}()
 
 	return nil
 }

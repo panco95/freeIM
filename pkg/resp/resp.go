@@ -19,6 +19,9 @@ const (
 	INVITE_CODE_NOT_EXISTS = "非法邀请码"
 	IP_REGISTER_BLAKCLIST  = "您的IP无法注册"
 	IP_REGISTER_LIMIT      = "您的IP受到注册限制"
+	EMAIL_REGISTER_OFF     = "邮箱注册通道已关闭"
+	MOBILE_REGISTER_OFF    = "手机号注册通道已关闭"
+	ACCOUNTS_REGISTER_OFF  = "账号注册通道已关闭"
 
 	FRIEND_NOT_EXISTS       = "对方还不是您的好友"
 	FRIEND_EXISTS           = "对方已经是您的好友"
@@ -28,6 +31,7 @@ const (
 	BLACKLIST_NOT_EXISTS    = "黑名单不存在"
 	FRIEND_GROUP_EXISTS     = "分组已存在"
 	FRIEND_GROUP_NOT_EXISTS = "分组不存在"
+	FRIEND_ADD_OFF          = "添加好友通道已关闭"
 
 	CHAT_GROUP_NOT_EXISTS        = "群聊不存在"
 	CHAT_GROUP_DISABLE_ADD_GROUP = "当前群聊禁止新成员加入"
@@ -43,6 +47,7 @@ const (
 	CHAT_GROUP_NOT_ALLOW         = "不允许踢出群主或管理员"
 	CHAT_GROUP_MEMBER_NOT_EXISTS = "成员不在本群聊"
 	CHAT_GROUP_CREATE_LIMIT      = "您的创建群聊数量超过限制"
+	CHAT_GROUP_CREATE_OFF        = "创建群聊通道已关闭"
 
 	MESSAGE_NOT_YOUR        = "只能撤回自己的消息"
 	MESSAGE_CANT_REVOCATION = "超过2分钟消息无法撤回"

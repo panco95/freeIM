@@ -8,7 +8,6 @@ import (
 	"im/pkg/etcd"
 	"im/pkg/gin/middlewares"
 	"im/pkg/resp"
-	"im/services/chatgroup"
 	"im/services/system/config"
 	"sync"
 	"time"
@@ -18,11 +17,10 @@ import (
 )
 
 type Service struct {
-	log          *zap.SugaredLogger
-	mysqlClient  *database.Client
-	manager      *etcd.Manager
-	config       *config.Config
-	chatGroupSvc *chatgroup.Service
+	log         *zap.SugaredLogger
+	mysqlClient *database.Client
+	manager     *etcd.Manager
+	config      *config.Config
 
 	connections       map[uint][]*Connection // 连接表
 	connectionsLocker sync.RWMutex           // 连接并发锁
@@ -35,14 +33,12 @@ func NewService(
 	mysqlClient *database.Client,
 	manager *etcd.Manager,
 	config *config.Config,
-	chatGroupSvc *chatgroup.Service,
 ) *Service {
 	return &Service{
-		log:          zap.S().With("module", "services.chat.service"),
-		mysqlClient:  mysqlClient,
-		manager:      manager,
-		config:       config,
-		chatGroupSvc: chatGroupSvc,
+		log:         zap.S().With("module", "services.chat.service"),
+		mysqlClient: mysqlClient,
+		manager:     manager,
+		config:      config,
 
 		connections:       make(map[uint][]*Connection),
 		connectionsLocker: sync.RWMutex{},

@@ -66,8 +66,12 @@ var serverCmd = &cobra.Command{
 		); err != nil {
 			log.Fatalf("Mysql AutoMigrate %v", err)
 		}
-		if err := pkgs.mysqlClient.SetAutoIncrementID("accounts", 10000000); err != nil {
-			log.Errorf("Mysql SetAutoIncrementID `accounts` %v", err)
+		if err := pkgs.mysqlClient.SetAutoIncrementID("im_accounts", 10000000); err != nil {
+			log.Errorf("Mysql SetAutoIncrementID `im_accounts` %v", err)
+		}
+
+		if err := pkgs.mysqlClient.SetAutoIncrementID("im_chat_groups", 10000000); err != nil {
+			log.Errorf("Mysql SetAutoIncrementID `im_chat_groups` %v", err)
 		}
 
 		// 自动刷新配置

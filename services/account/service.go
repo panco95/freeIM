@@ -262,6 +262,25 @@ func (s *Service) IPRegisterIncr(
 	return nil
 }
 
+// 校验手机/邮箱登录是否启用
+func (s *Service) CheckEmailOrMobileRegisterEnable(
+	ctx context.Context,
+	captchaType models.CaptchaType,
+) error {
+	switch captchaType {
+	case models.CaptchaTypeEmail:
+		if s.config.GetString("register_email") != "true" {
+			return errors.New(resp.EMAIL_REGISTER_OFF)
+		}
+	case models.CaptchaTypeMobile:
+		if s.config.GetString("register_sms") != "true" {
+			return errors.New(resp.MOBILE_REGISTER_OFF)
+		}
+	}
+
+	return nil
+}
+
 // 账号登录
 func (s *Service) BasicLogin(
 	ctx context.Context,
@@ -334,6 +353,10 @@ func (s *Service) BasicRegister(
 			return "", nil, err
 		}
 	}
+	// 校验注册开关
+	if s.config.GetString("register_account") != "true" {
+		return "", nil, errors.New(resp.ACCOUNTS_REGISTER_OFF)
+	}
 	// 校验邀请码
 	err := s.CheckInviteCode(ctx, req.InviteCode)
 	if err != nil {
@@ -370,6 +393,7 @@ func (s *Service) BasicRegister(
 	account.Password = utils.Md5(utils.Md5(req.Password) + account.PasswordSalt)
 	account.LastLoginIp = ip
 	account.InviteCode = req.InviteCode
+	account.Avatar = s.config.GetString("default_account_avatar")
 
 	err = db.Model(&models.Account{}).
 		Create(account).Error
@@ -419,7 +443,17 @@ func (s *Service) SendCaptcha(
 	case models.CaptchaTypeEmail:
 		err = s.emailClient.SendEmail("IM邮箱登录验证码", "您的验证码为："+vcode, []string{captchaKey})
 	case models.CaptchaTypeMobile:
-		err = s.smsClient.Send(ctx, captchaKey, "【IM】您的验证码为："+vcode)
+		smsbaoUsername := s.config.GetString("smsbao_username")
+		smsbaoPassword := s.config.GetString("smsbao_password")
+		smsbaoSendRange := s.config.GetString("smsbao_send_range")
+		if smsbaoUsername != "" && smsbaoPassword != "" && smsbaoSendRange != "" {
+			s.smsClient.SetParams(
+				smsbaoUsername,
+				smsbaoPassword,
+				smsbaoSendRange,
+			)
+		}
+		err = s.smsClient.Send(ctx, captchaKey, "【"+s.config.GetString("sms_sign")+"】 "+strings.Replace(s.config.GetString("sms_template"), "{code}", vcode, 1))
 	}
 	if err != nil {
 		s.log.Errorf("SendCaptcha send %v", err)
@@ -457,8 +491,13 @@ func (s *Service) EmailOrMobileLogin(
 		return "", false, err
 	}
 	if queryAccount.ID == 0 {
+		// 校验邮箱或手机号注册开关
+		err := s.CheckEmailOrMobileRegisterEnable(ctx, captchaType)
+		if err != nil {
+			return "", false, err
+		}
 		// 校验邀请码
-		err := s.CheckInviteCode(ctx, inviteCode)
+		err = s.CheckInviteCode(ctx, inviteCode)
 		if err != nil {
 			return "", false, err
 		}
@@ -518,6 +557,7 @@ func (s *Service) AutoRegister(
 	account.LastLoginTime = &now
 	account.LoginTimes = 1
 	account.Username = account.Email + account.Mobile
+	account.Avatar = s.config.GetString("default_account_avatar")
 
 	err := db.Model(&models.Account{}).
 		Create(account).Error
@@ -685,11 +725,11 @@ func (s *Service) GetDiscovers(
 
 	discovers := make([]*models.Discover, 0)
 	err := db.Model(&models.Discover{}).
-		Order("`order` desc").
+		Order("`order` asc").
 		Find(&discovers).Error
 
 	if err != nil {
-		s.log.Errorf("UpdateAccountInfo update %v", err)
+		s.log.Errorf("GetDiscovers select %v", err)
 		return nil, err
 	}
 

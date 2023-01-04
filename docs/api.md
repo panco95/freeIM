@@ -1,5 +1,25 @@
+---
+title: IM v1.0.0
+language_tabs:
+  - shell: Shell
+  - http: HTTP
+  - javascript: JavaScript
+  - ruby: Ruby
+  - python: Python
+  - php: PHP
+  - java: Java
+  - go: Go
+toc_footers: []
+includes: []
+search: true
+code_clipboard: true
+highlight_theme: darkula
+headingLevel: 2
+generator: "@tarslib/widdershins v4.0.17"
 
-# FreeIM-server api doc
+---
+
+# IM
 
 > v1.0.0
 
@@ -211,6 +231,7 @@ password: test123
 captchaKey: string
 captcha: string
 platform: android
+inviteCode: string
 
 ```
 
@@ -225,6 +246,7 @@ platform: android
 |» captchaKey|body|string| 是 |验证码key|
 |» captcha|body|string| 是 |验证码|
 |» platform|body|string| 是 |平台：android  ios  h5|
+|» inviteCode|body|string| 否 |none|
 
 > 返回示例
 
@@ -269,6 +291,7 @@ POST /login/email
 email: 1129443982@qq.com
 captcha: test123
 platform: android
+inviteCode: string
 
 ```
 
@@ -281,6 +304,7 @@ platform: android
 |» email|body|string| 是 |邮箱地址|
 |» captcha|body|string| 是 |验证码|
 |» platform|body|string| 是 |平台：android  ios  h5|
+|» inviteCode|body|string| 否 |none|
 
 > 返回示例
 
@@ -325,6 +349,7 @@ POST /login/mobile
 mobile: "15712345678"
 captcha: string
 platform: android
+inviteCode: string
 
 ```
 
@@ -337,6 +362,7 @@ platform: android
 |» mobile|body|string| 是 |手机号|
 |» captcha|body|string| 是 |验证码|
 |» platform|body|string| 是 |平台：android  ios  h5|
+|» inviteCode|body|string| 否 |none|
 
 > 返回示例
 
@@ -483,7 +509,7 @@ GET /me/info
 
 |名称|位置|类型|必选|说明|
 |---|---|---|---|---|
-|Authorization|header|string| 否 |用户Token|
+|Authorization|header|string| 是 |用户Token|
 
 > 返回示例
 
@@ -494,11 +520,11 @@ GET /me/info
   "code": 0,
   "result": {
     "account": {
-      "id": 10000039,
-      "username": "p00004",
+      "id": 10000050,
+      "username": "p0000001",
       "email": "",
       "mobile": "",
-      "nickname": "p00004",
+      "nickname": "p0000001",
       "avatar": "",
       "gender": "",
       "birth": "",
@@ -509,7 +535,8 @@ GET /me/info
       "country": "",
       "province": "",
       "city": "",
-      "district": ""
+      "district": "",
+      "onlineStatus": "offline"
     }
   },
   "message": ""
@@ -547,6 +574,7 @@ GET /me/info
 |»»» province|string|true|none|省份|none|
 |»»» city|string|true|none|城市|none|
 |»»» district|string|true|none|区县|none|
+|»»» onlineStatus|string|true|none|在线状态|online在线  offline离线|
 |» message|string|true|none||none|
 
 ## PUT 修改我的密码
@@ -609,14 +637,14 @@ city: string
 |---|---|---|---|---|
 |Authorization|header|string| 是 |用户Token|
 |body|body|object| 否 |none|
-|» nickname|body|string| 否 |昵称（传空字符串不更新）|
-|» avatar|body|string| 否 |头像（传空字符串不更新）|
-|» longitude|body|number| 否 |经度（传0串不更新）|
-|» latitude|body|number| 否 |纬度（传0不更新）|
-|» intro|body|string| 否 |个人介绍（传空字符串不更新）|
-|» gender|body|string| 否 |性别：男 女（传空字符串不更新）|
-|» country|body|string| 否 |国家（传空字符串不更新）|
-|» province|body|string| 否 |省（传空字符串不更新）|
+|» nickname|body|string| 否 |昵称（传空字符串或不传不更新）|
+|» avatar|body|string| 否 |头像（传空字符串或不传不更新）|
+|» longitude|body|number| 否 |经度（传0或不传不更新）|
+|» latitude|body|number| 否 |纬度（传0或不传不更新）|
+|» intro|body|string| 否 |个人介绍（传空字符串或不传不更新）|
+|» gender|body|string| 否 |性别：男 女（传空字符串或不传不更新）|
+|» country|body|string| 否 |国家（传空字符串或不传不更新）|
+|» province|body|string| 否 |省（传空字符串或不传不更新）|
 |» city|body|string| 否 |城市（传空字符串不更新）|
 
 > 返回示例
@@ -658,31 +686,26 @@ GET /friends/search
   "result": {
     "items": [
       {
-        "id": 10000001,
-        "username": "panco002",
-        "email": "",
-        "mobile": "",
-        "nickname": "panco002",
-        "avatar": "",
-        "gender": "",
-        "birth": "",
-        "age": 0,
-        "intro": ""
-      },
-      {
         "id": 10000003,
-        "username": "panco002",
+        "username": "15345678910",
         "email": "",
         "mobile": "",
-        "nickname": "panco002",
+        "nickname": "15345678910",
         "avatar": "",
         "gender": "",
         "birth": "",
         "age": 0,
-        "intro": ""
+        "intro": "",
+        "longitude": 0,
+        "latitude": 0,
+        "country": "",
+        "province": "",
+        "city": "",
+        "district": "",
+        "onlineStatus": "offline"
       }
     ],
-    "total": 2
+    "total": 1
   },
   "message": ""
 }
@@ -703,22 +726,38 @@ GET /friends/search
 |» code|integer|true|none||none|
 |» result|object|true|none||none|
 |»» items|[object]|true|none||通用数组|
-|»»» id|integer|true|none||用户ID|
-|»»» username|string|true|none||用户名|
-|»»» email|string|true|none||电子邮件|
-|»»» mobile|string|true|none||手机号|
-|»»» nickname|string|true|none||昵称|
-|»»» avatar|string|true|none||头像|
-|»»» gender|string|true|none||性别|
-|»»» birth|string|true|none||生日|
-|»»» age|integer|true|none||年龄|
-|»»» intro|string|true|none||个人介绍|
+|»»» id|integer|false|none||用户ID|
+|»»» username|string|false|none||用户名|
+|»»» email|string|false|none||电子邮件|
+|»»» mobile|string|false|none||手机号|
+|»»» nickname|string|false|none||昵称|
+|»»» avatar|string|false|none||头像|
+|»»» gender|string|false|none||性别|
+|»»» birth|string|false|none||生日|
+|»»» age|integer|false|none||年龄|
+|»»» intro|string|false|none||个人介绍|
+|»»» longitude|integer|false|none||none|
+|»»» latitude|integer|false|none||none|
+|»»» country|string|false|none||none|
+|»»» province|string|false|none||none|
+|»»» city|string|false|none||none|
+|»»» district|string|false|none||none|
+|»»» onlineStatus|string|false|none|在线状态|online在线 offline离线|
 |»» total|integer|true|none||总数|
 |» message|string|true|none||none|
 
 ## POST 添加好友
 
 POST /friends/add
+
+成功后会给对方发送消息：
+{
+"createdAt": "2022-12-01T00:12:24.799+08:00",
+"fromId": 10000011, //申请人ID
+"ope": "system", 
+"type": "addFreind",
+...//其他字段无用
+}
 
 > Body 请求参数
 
@@ -971,6 +1010,7 @@ GET /friends
 |»»»» birth|string|true|none||生日|
 |»»»» age|integer|true|none||年龄|
 |»»»» intro|string|true|none||介绍|
+|»»»» onlineStatus|string|true|none||online在线 offline离线|
 |»»» friendGroups|[object]|false|none||好友分组数组|
 |»»»» id|integer|false|none||分组ID|
 |»»»» name|string|false|none||分组名称|
@@ -1625,7 +1665,7 @@ GET /friends/info
 |名称|位置|类型|必选|说明|
 |---|---|---|---|---|
 |toId|query|integer| 是 |好友信息|
-|Authorization|header|string| 是 |用户Token|
+|Authorization|header|string| 是 |token|
 
 > 返回示例
 
@@ -1881,6 +1921,13 @@ disableAddMember: "0"
 disableViewMember: "0"
 disbaleAddGroup: "0"
 enbaleBeforeMsg: "0"
+longitude: 0
+latitude: 0
+country: string
+province: string
+city: string
+district: string
+address: string
 
 ```
 
@@ -1891,12 +1938,19 @@ enbaleBeforeMsg: "0"
 |Authorization|header|string| 是 |用户Token|
 |body|body|object| 否 |none|
 |» name|body|string| 是 |群组名称|
-|» intro|body|string| 是 |介绍|
+|» intro|body|string| 否 |群介绍|
 |» avatar|body|string| 否 |群头像|
 |» disableAddMember|body|integer| 否 |禁止加成员好友|
 |» disableViewMember|body|integer| 否 |禁用查看成员资料|
 |» disbaleAddGroup|body|integer| 否 |禁用主动申请入群|
 |» enbaleBeforeMsg|body|integer| 否 |是否开启加群之前的漫游消息|
+|» longitude|body|number| 否 |经度|
+|» latitude|body|number| 否 |纬度|
+|» country|body|string| 否 |国家|
+|» province|body|string| 否 |省份|
+|» city|body|string| 否 |城市|
+|» district|body|string| 否 |区县|
+|» address|body|string| 否 |none|
 
 > 返回示例
 
@@ -1905,7 +1959,27 @@ enbaleBeforeMsg: "0"
 ```json
 {
   "code": 0,
-  "result": null,
+  "result": {
+    "id": 4,
+    "createdAt": "2022-12-23T10:41:24.287+08:00",
+    "updatedAt": "2022-12-23T10:41:24.287+08:00",
+    "name": "sssss",
+    "avatar": "",
+    "intro": "",
+    "members": 1,
+    "members_limit": 500,
+    "longitude": 0,
+    "latitude": 0,
+    "country": "",
+    "province": "",
+    "city": "",
+    "district": "",
+    "address": "",
+    "disableAddMember": false,
+    "disableViewMember": false,
+    "disbaleAddGroup": false,
+    "enbaleBeforeMsg": false
+  },
   "message": "创建成功"
 }
 ```
@@ -1923,7 +1997,26 @@ enbaleBeforeMsg: "0"
 |名称|类型|必选|约束|中文名|说明|
 |---|---|---|---|---|---|
 |» code|integer|true|none||none|
-|» result|null|true|none||none|
+|» result|object|true|none||none|
+|»» id|integer|true|none||none|
+|»» createdAt|string|true|none||none|
+|»» updatedAt|string|true|none||none|
+|»» name|string|true|none||none|
+|»» avatar|string|true|none||none|
+|»» intro|string|true|none||none|
+|»» members|integer|true|none||none|
+|»» members_limit|integer|true|none||none|
+|»» longitude|integer|true|none||none|
+|»» latitude|integer|true|none||none|
+|»» country|string|true|none||none|
+|»» province|string|true|none||none|
+|»» city|string|true|none||none|
+|»» district|string|true|none||none|
+|»» address|string|true|none||none|
+|»» disableAddMember|boolean|true|none||none|
+|»» disableViewMember|boolean|true|none||none|
+|»» disbaleAddGroup|boolean|true|none||none|
+|»» enbaleBeforeMsg|boolean|true|none||none|
 |» message|string|true|none||none|
 
 ## PUT 修改群资料
@@ -1941,6 +2034,13 @@ disableAddMember: "0"
 disableViewMember: "0"
 disbaleAddGroup: "0"
 enbaleBeforeMsg: "0"
+longitude: 0
+latitude: string
+country: string
+province: string
+city: string
+district: string
+address: string
 
 ```
 
@@ -1951,13 +2051,20 @@ enbaleBeforeMsg: "0"
 |Authorization|header|string| 是 |用户Token|
 |body|body|object| 否 |none|
 |» groupId|body|integer| 是 |群组ID|
-|» name|body|string| 是 |群组名称|
-|» intro|body|string| 是 |介绍|
-|» avatar|body|string| 否 |群头像（传空字符串不更新）|
+|» name|body|string| 否 |群组名称（传空字符串或不传不更新）|
+|» intro|body|string| 否 |群介绍（传空字符串或不传不更新）|
+|» avatar|body|string| 否 |群头像（传空字符串或不传不更新）|
 |» disableAddMember|body|integer| 否 |禁止加成员好友|
 |» disableViewMember|body|integer| 否 |禁用查看成员资料|
 |» disbaleAddGroup|body|integer| 否 |禁用主动申请入群|
 |» enbaleBeforeMsg|body|integer| 否 |是否开启加群之前的漫游消息|
+|» longitude|body|number| 否 |经度（传0或不传不更新）|
+|» latitude|body|string| 否 |纬度（传空字符串或不传不更新）|
+|» country|body|string| 否 |国家（传空字符串或不传不更新）|
+|» province|body|string| 否 |省份（传空字符串或不传不更新）|
+|» city|body|string| 否 |城市（传空字符串或不传不更新）|
+|» district|body|string| 否 |区县|
+|» address|body|string| 否 |none|
 
 > 返回示例
 
@@ -2064,6 +2171,16 @@ GET /chatGroups
 ## POST 加群申请
 
 POST /chatGroups/join
+
+成功后会给群主和管理员发送消息：
+{
+"createdAt": "2022-12-01T00:12:24.799+08:00",
+"fromId": 10000011, //申请人ID
+"toId": 1, //群ID
+"ope": "system", 
+"type": "joinGroup",
+...//其他字段无用
+}
 
 > Body 请求参数
 
@@ -2907,6 +3024,56 @@ name: string
 |»» total|integer|true|none||none|
 |» message|string|true|none||none|
 
+## POST 邀请群员(拉人)
+
+POST /chatGroups/invite
+
+> Body 请求参数
+
+```yaml
+groupId: "1"
+toIdList:
+  - ""
+
+```
+
+### 请求参数
+
+|名称|位置|类型|必选|说明|
+|---|---|---|---|---|
+|Authorization|header|string| 是 |用户Token|
+|body|body|object| 否 |none|
+|» groupId|body|integer| 是 |群组ID|
+|» toIdList|body|array| 是 |none|
+
+> 返回示例
+
+> 成功
+
+```json
+{
+  "code": 0,
+  "result": null,
+  "message": "处理成功"
+}
+```
+
+### 返回结果
+
+|状态码|状态码含义|说明|数据模型|
+|---|---|---|---|
+|200|[OK](https://tools.ietf.org/html/rfc7231#section-6.3.1)|成功|Inline|
+
+### 返回数据结构
+
+状态码 **200**
+
+|名称|类型|必选|约束|中文名|说明|
+|---|---|---|---|---|---|
+|» code|integer|true|none||none|
+|» result|null|true|none||none|
+|» message|string|true|none||none|
+
 # 聊天
 
 ## CONNECT 发送正在输入
@@ -3155,7 +3322,7 @@ GET /chat/messages
 
 # 其他
 
-## GET 获取七牛云参数
+## GET 七牛云参数(即将弃用)
 
 GET /upload/qiniu/params
 
@@ -3196,6 +3363,219 @@ GET /upload/qiniu/params
 |» result|object|true|none||none|
 |»» accessDomain|string|true|none||资源访问域名|
 |»» uploadToken|string|true|none||资源上传Token|
+|» message|string|true|none||none|
+
+## GET 发现页链接
+
+GET /discovers
+
+### 请求参数
+
+|名称|位置|类型|必选|说明|
+|---|---|---|---|---|
+|Authorization|header|string| 是 |用户Token|
+
+> 返回示例
+
+> 成功
+
+```json
+{
+  "code": 0,
+  "result": {
+    "items": [
+      {
+        "id": 1,
+        "createdAt": "2022-12-22T08:13:49+08:00",
+        "updatedAt": "2022-12-22T08:25:24+08:00",
+        "name": "百度",
+        "logo": "img_1671695061118.jpg",
+        "url": "https://www.baidu.com",
+        "password": ""
+      },
+      {
+        "id": 2,
+        "createdAt": "2022-12-22T08:14:50+08:00",
+        "updatedAt": "2022-12-22T08:25:34+08:00",
+        "name": "腾讯",
+        "logo": "img_1671695061118.jpg",
+        "url": "https://www.qq.com",
+        "password": ""
+      },
+      {
+        "id": 3,
+        "createdAt": "2022-12-28T23:14:04+08:00",
+        "updatedAt": "2022-12-28T23:17:18+08:00",
+        "name": "hl",
+        "logo": "z",
+        "url": "https://hao.360.com",
+        "password": ""
+      }
+    ],
+    "total": 3
+  },
+  "message": ""
+}
+```
+
+### 返回结果
+
+|状态码|状态码含义|说明|数据模型|
+|---|---|---|---|
+|200|[OK](https://tools.ietf.org/html/rfc7231#section-6.3.1)|成功|Inline|
+
+### 返回数据结构
+
+状态码 **200**
+
+|名称|类型|必选|约束|中文名|说明|
+|---|---|---|---|---|---|
+|» code|integer|true|none||none|
+|» result|object|true|none||none|
+|»» items|[object]|true|none||none|
+|»»» id|integer|true|none||none|
+|»»» createdAt|string|true|none||none|
+|»»» updatedAt|string|true|none||none|
+|»»» name|string|true|none||名称|
+|»»» logo|string|true|none||LOGO|
+|»»» url|string|true|none||URL地址|
+|»»» password|string|true|none||访问密码|
+|»» total|integer|true|none||none|
+|» message|string|true|none||none|
+
+## GET 获取配置
+
+GET /configs
+
+### 请求参数
+
+|名称|位置|类型|必选|说明|
+|---|---|---|---|---|
+|Authorization|header|string| 是 |用户Token|
+
+> 返回示例
+
+> 成功
+
+```json
+{
+  "code": 0,
+  "result": {
+    "configs": {
+      "add_freind": "true",
+      "add_friend_apply_limit": "0",
+      "add_friend_mode": "all",
+      "add_manager_free": "true",
+      "chat_display_input": "true",
+      "chat_display_log_button": "true",
+      "chat_display_read": "true",
+      "chat_list_time_limit": "300",
+      "chat_rate": "0",
+      "chat_repeat_rate": "0",
+      "chat_text_max_length": "0",
+      "chatgroup_display_false_members": "false",
+      "chatgroup_display_info": "true",
+      "chatgroup_display_invite": "true",
+      "chatgroup_display_members": "true",
+      "chatgroup_display_title_members": "true",
+      "chatgroup_exit": "true",
+      "chatgroup_members_limit": "500",
+      "chatgroup_owner_clean_message": "true",
+      "chatgroup_search_id": "true",
+      "create_chatgroup": "true",
+      "default_avatar": "true",
+      "discover_name": "发现",
+      "display_online_status": "true",
+      "ip_register_blacklist": "",
+      "ip_register_limit": "0",
+      "ip_register_rate": "1",
+      "ip_register_whitelist": "",
+      "login_captcha": "false",
+      "login_fail_limit": "0",
+      "manager_ip_limit": "false",
+      "manager_ip_whitelist": "",
+      "near_chatgroup_distance": "1000",
+      "near_friend_distance": "1000",
+      "new_upload_avatar": "true",
+      "register_invite": "false",
+      "register_mobile": "true",
+      "register_pc": "true",
+      "register_sms": "true",
+      "search_account_mode": "all",
+      "sensitive_replace": "??",
+      "sensitive_send": "true",
+      "sensitive_words": ""
+    },
+    "qiniu": {
+      "accessDomain": "http://imfile.uugarden.cn",
+      "uploadToken": "U7nSFEZVJ7gnNNqTrsvN5BeRzDrbQMTlHChzCybC:OBR62NPw7kIH6XRTjXUwtCbs6RM=:eyJzY29wZSI6ImZyZWVpbSIsImRlYWRsaW5lIjoxNjcyMTExNDYzfQ=="
+    }
+  },
+  "message": ""
+}
+```
+
+### 返回结果
+
+|状态码|状态码含义|说明|数据模型|
+|---|---|---|---|
+|200|[OK](https://tools.ietf.org/html/rfc7231#section-6.3.1)|成功|Inline|
+
+### 返回数据结构
+
+状态码 **200**
+
+|名称|类型|必选|约束|中文名|说明|
+|---|---|---|---|---|---|
+|» code|integer|true|none||none|
+|» result|object|true|none||none|
+|»» configs|object|true|none||none|
+|»»» add_freind|string|true|none||none|
+|»»» add_friend_apply_limit|string|true|none||none|
+|»»» add_friend_mode|string|true|none||none|
+|»»» add_manager_free|string|true|none||none|
+|»»» chat_display_input|string|true|none||none|
+|»»» chat_display_log_button|string|true|none||none|
+|»»» chat_display_read|string|true|none||none|
+|»»» chat_list_time_limit|string|true|none||none|
+|»»» chat_rate|string|true|none||none|
+|»»» chat_repeat_rate|string|true|none||none|
+|»»» chat_text_max_length|string|true|none||none|
+|»»» chatgroup_display_false_members|string|true|none||none|
+|»»» chatgroup_display_info|string|true|none||none|
+|»»» chatgroup_display_invite|string|true|none||none|
+|»»» chatgroup_display_members|string|true|none||none|
+|»»» chatgroup_display_title_members|string|true|none||none|
+|»»» chatgroup_exit|string|true|none||none|
+|»»» chatgroup_members_limit|string|true|none||none|
+|»»» chatgroup_owner_clean_message|string|true|none||none|
+|»»» chatgroup_search_id|string|true|none||none|
+|»»» create_chatgroup|string|true|none||none|
+|»»» default_avatar|string|true|none||none|
+|»»» discover_name|string|true|none||none|
+|»»» display_online_status|string|true|none||none|
+|»»» ip_register_blacklist|string|true|none||none|
+|»»» ip_register_limit|string|true|none||none|
+|»»» ip_register_rate|string|true|none||none|
+|»»» ip_register_whitelist|string|true|none||none|
+|»»» login_captcha|string|true|none||none|
+|»»» login_fail_limit|string|true|none||none|
+|»»» manager_ip_limit|string|true|none||none|
+|»»» manager_ip_whitelist|string|true|none||none|
+|»»» near_chatgroup_distance|string|true|none||none|
+|»»» near_friend_distance|string|true|none||none|
+|»»» new_upload_avatar|string|true|none||none|
+|»»» register_invite|string|true|none||none|
+|»»» register_mobile|string|true|none||none|
+|»»» register_pc|string|true|none||none|
+|»»» register_sms|string|true|none||none|
+|»»» search_account_mode|string|true|none||none|
+|»»» sensitive_replace|string|true|none||none|
+|»»» sensitive_send|string|true|none||none|
+|»»» sensitive_words|string|true|none||none|
+|»» qiniu|object|true|none||none|
+|»»» accessDomain|string|true|none||none|
+|»»» uploadToken|string|true|none||none|
 |» message|string|true|none||none|
 
 # 数据模型

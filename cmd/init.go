@@ -223,23 +223,24 @@ func NewServices(pkgs *Packages) *Services {
 		config,
 	)
 
+	chatSvc := chat.NewService(
+		pkgs.mysqlClient,
+		pkgs.manager,
+		config,
+	)
+
 	friendSvc := friend.NewService(
+		chatSvc,
 		pkgs.mysqlClient,
 		pkgs.redisClient,
 		config,
 	)
 
 	chatGroupSvc := chatgroup.NewService(
+		chatSvc,
 		pkgs.mysqlClient,
 		pkgs.redisClient,
 		config,
-	)
-
-	chatSvc := chat.NewService(
-		pkgs.mysqlClient,
-		pkgs.manager,
-		config,
-		chatGroupSvc,
 	)
 
 	viper.SetDefault("project.name", "freeim")
