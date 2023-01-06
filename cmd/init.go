@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"im/dao"
 	"im/pkg/database"
 	"im/pkg/email"
 	"im/pkg/etcd"
@@ -31,6 +32,7 @@ type Packages struct {
 	redisClient   *redislib.Client
 	cacheClient   *redisCache.Cache
 	redSyncClient *redsync.Redsync
+	dao           *dao.Dao
 	etcdClient    *etcd.Etcd
 	manager       *etcd.Manager
 	emailClient   *email.Mail
@@ -190,6 +192,11 @@ func NewPackages(serverID string) (pkgs *Packages) {
 		pkgs.qiniuClient = qiniuClient
 	}
 
+	{
+		dao := dao.NewDao(pkgs.mysqlClient)
+		pkgs.dao = dao
+	}
+
 	return
 }
 
@@ -214,9 +221,9 @@ func NewServices(pkgs *Packages) *Services {
 	viper.SetDefault("login.rsaPrivateKey", utils.DefaultRSAPrivateKey)
 	viper.SetDefault("login.rsaPublicKey", utils.DefaultRSAPublicKey)
 	accountSvc := account.NewService(
-		pkgs.mysqlClient,
 		pkgs.redisClient,
 		pkgs.cacheClient,
+		pkgs.dao,
 		pkgs.emailClient,
 		pkgs.smsClient,
 		pkgs.jwt,
