@@ -405,7 +405,7 @@ func (s *Service) JoinChatGroupReply(
 
 	err = db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.ChatGroupJoin{}).
-			Where("id = ?", 1).
+			Where("id = ?", chatGroupApply.ID).
 			Updates(&models.ChatGroupJoin{
 				Status:     req.Status,
 				DenyReason: req.Reason,
