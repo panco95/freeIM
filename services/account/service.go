@@ -229,9 +229,9 @@ func (s *Service) IPRegisterIncr(
 	cacheTimes++
 	//如果注册累计次数达到频率限制：删除计数缓存创建限制缓存
 	//如果没达到频率限制：注册计数+1
-	ipRegisterRate := s.config.GetInt("ip_register_rate")
-	if ipRegisterRate > 0 {
-		if cacheTimes >= ipRegisterRate {
+	ipRegisterMax := s.config.GetInt("ip_register_max")
+	if ipRegisterMax > 0 {
+		if cacheTimes >= ipRegisterMax {
 			err := s.cacheClient.Delete(ctx, cacheKey)
 			if err != nil {
 				return err
@@ -241,7 +241,7 @@ func (s *Service) IPRegisterIncr(
 				Ctx:   ctx,
 				Key:   cacheKey2,
 				Value: 1,
-				TTL:   time.Duration(s.config.GetInt("ip_register_limit")*3600*24 + 1),
+				TTL:   time.Duration(s.config.GetInt("ip_register_limit_day")*3600*24 + 1),
 			})
 			if err != nil {
 				return err
@@ -288,7 +288,7 @@ func (s *Service) BasicLogin(
 	ip string,
 ) (string, *models.Account, error) {
 	db := s.mysqlClient.Db()
-	if s.config.GetString("login_captcha") != "false" {
+	if s.config.GetString("login_vcode_captcha") != "false" {
 		err := s.CheckCaptcha(ctx, req.CaptchaKey, req.Captcha, models.CaptchaTypeLogin)
 		if err != nil {
 			return "", nil, err
@@ -347,7 +347,7 @@ func (s *Service) BasicRegister(
 ) (string, *models.Account, error) {
 	db := s.mysqlClient.Db()
 	// 校验验证码
-	if s.config.GetString("login_captcha") != "false" {
+	if s.config.GetString("login_vcode_captcha") != "false" {
 		err := s.CheckCaptcha(ctx, req.CaptchaKey, req.Captcha, models.CaptchaTypeRegister)
 		if err != nil {
 			return "", nil, err
@@ -441,19 +441,18 @@ func (s *Service) SendCaptcha(
 
 	switch captchaType {
 	case models.CaptchaTypeEmail:
-		err = s.emailClient.SendEmail("IM邮箱登录验证码", "您的验证码为："+vcode, []string{captchaKey})
+		err = s.emailClient.SendEmail(
+			s.config.GetString("email_title"),
+			s.config.GetString("email_from"),
+			strings.Replace(s.config.GetString("email_template"), "{code}", vcode, 1),
+			[]string{captchaKey},
+		)
 	case models.CaptchaTypeMobile:
-		smsbaoUsername := s.config.GetString("smsbao_username")
-		smsbaoPassword := s.config.GetString("smsbao_password")
-		smsbaoSendRange := s.config.GetString("smsbao_send_range")
-		if smsbaoUsername != "" && smsbaoPassword != "" && smsbaoSendRange != "" {
-			s.smsClient.SetParams(
-				smsbaoUsername,
-				smsbaoPassword,
-				smsbaoSendRange,
-			)
-		}
-		err = s.smsClient.Send(ctx, captchaKey, "【"+s.config.GetString("sms_sign")+"】 "+strings.Replace(s.config.GetString("sms_template"), "{code}", vcode, 1))
+		err = s.smsClient.Send(
+			ctx,
+			captchaKey,
+			"【"+s.config.GetString("sms_sign")+"】 "+strings.Replace(s.config.GetString("sms_template"), "{code}", vcode, 1),
+		)
 	}
 	if err != nil {
 		s.log.Errorf("SendCaptcha send %v", err)

@@ -24,9 +24,9 @@ func New(addr, identity, username, password, host string) *Mail {
 	}
 }
 
-func (m *Mail) SendEmail(subject, text string, toEmail []string) error {
+func (m *Mail) SendEmail(subject, from, text string, toEmail []string) error {
 	e := email.NewEmail()
-	e.From = "IM通知 <1129443982@qq.com>"
+	e.From = from
 	e.To = toEmail
 	e.Subject = subject
 	e.Text = []byte(text)

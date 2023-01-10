@@ -43,14 +43,6 @@ func NewSmsBao(username, password string, sendRange SendRange) *SmsBao {
 	}
 }
 
-func (sb *SmsBao) SetParams(
-	username, password, sendRange string,
-) {
-	sb.username = username
-	sb.password = password
-	sb.sendRange = SendRange(sendRange)
-}
-
 func (sb *SmsBao) Send(
 	ctx context.Context,
 	mobile, content string,

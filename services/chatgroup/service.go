@@ -161,7 +161,7 @@ func (s *Service) CreateChatGroup(
 	accountId uint,
 	req *models.CreateChatGroupReq,
 ) (*models.ChatGroup, error) {
-	if s.config.GetString("create_chatgroup") != "true" {
+	if s.config.GetString("create_chatgroup_enable") != "true" {
 		return nil, errors.New(resp.CHAT_GROUP_CREATE_OFF)
 	}
 
