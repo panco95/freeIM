@@ -32,7 +32,7 @@ func (s *Service) ConnectWebsocket(ctx *gin.Context) {
 
 	conn, err = websocketUpgrade.Upgrade(w, r, nil)
 	if err != nil {
-		s.log.Errorf("websocketUpgrade.Upgrade %v", err)
+		s.log.Errorf("ConnectWebsocket websocketUpgrade.Upgrade %v", err)
 		return
 	}
 
@@ -79,7 +79,7 @@ func (s *Service) ConnChannel(c *Connection) {
 	for msg := range c.Channel {
 		var message *models.Message
 		if err := json.Unmarshal(msg, message); err != nil {
-			break
+			continue
 		}
 
 		switch message.Type {
