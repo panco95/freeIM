@@ -39,7 +39,6 @@ var (
 	MessageTypeRead      MessageType = "read"      //对方已读
 	MessageTypeInput     MessageType = "input"     //对方正在输入
 	MessageTypePing      MessageType = "ping"      //心跳
-	MessageTypeOffline   MessageType = "offline"   //断开连接
 	MessageTypeAddFriend MessageType = "addFriend" //添加好友请求
 	MessageTypeJoinGroup MessageType = "joinGroup" //申请加群请求
 

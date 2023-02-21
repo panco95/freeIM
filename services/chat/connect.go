@@ -21,6 +21,7 @@ type Connection struct {
 	Channel   chan []byte
 	Platform  string
 	Ctx       *gin.Context
+	Connected bool
 }
 
 // 连接websocket
@@ -45,6 +46,7 @@ func (s *Service) ConnectWebsocket(ctx *gin.Context) {
 		Ctx:       ctx,
 		AccountId: accountId,
 		Platform:  platform,
+		Connected: true,
 	}
 	go s.ConnChannel(&c)
 
@@ -69,13 +71,32 @@ func (s *Service) ConnectWebsocket(ctx *gin.Context) {
 	delete(s.connections, accountId)
 	s.connectionsLocker.Unlock()
 
-	msg, _ := json.Marshal(models.Message{Type: models.MessageTypeOffline})
-	c.Channel <- msg
+	close(c.Channel)
+	c.Ctx = nil
+	c.Connected = false
+	go s.UpdateOnlineStatus(c.AccountId, models.OnlineStatusOffline)
+
 }
 
 // 消息处理协程
 func (s *Service) ConnChannel(c *Connection) {
 	go s.UpdateOnlineStatus(c.AccountId, models.OnlineStatusOnline)
+
+	go func() {
+		for {
+			if !c.Connected {
+				return
+			}
+			err := c.Conn.WriteJSON(&models.Message{
+				Type: models.MessageTypePing,
+			})
+			if err != nil {
+				s.log.Errorf("ConnChannel PING %v", err)
+			}
+			time.Sleep(time.Second * 2)
+		}
+	}()
+
 	for msg := range c.Channel {
 		var message *models.Message
 		if err := json.Unmarshal(msg, message); err != nil {
@@ -89,14 +110,6 @@ func (s *Service) ConnChannel(c *Connection) {
 			if err != nil {
 				s.log.Errorf("ConnChannel MessageTypeInput RPC.SendMessageCall %v", err)
 			}
-		case models.MessageTypePing: //心跳
-			err := c.Conn.WriteJSON(msg)
-			if err != nil {
-				s.log.Errorf("ConnChannel MessageTypePing Conn.WriteJSON %v", err)
-			}
-		case models.MessageTypeOffline: //断开连接后释放协程
-			go s.UpdateOnlineStatus(c.AccountId, models.OnlineStatusOffline)
-			return
 		}
 	}
 }
@@ -118,7 +131,6 @@ func (s *Service) UpdateOnlineStatus(accountId uint, onlineStatus models.OnlineS
 	}
 }
 
-// 升级http为websocket服务
 var websocketUpgrade = websocket.Upgrader{
 	ReadBufferSize:   1024,
 	WriteBufferSize:  1024,

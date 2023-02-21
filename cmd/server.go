@@ -224,9 +224,8 @@ func GetGinPublicEngine(ctrls *GinControllers, pkgs *Packages) (*gin.Engine, err
 	reset.POST("password/mobile", ctrls.accountCtrl.MobileResetPassword)
 
 	api.Use(middlewares.NewJwtCheckMiddleware(pkgs.jwt, pkgs.mysqlClient, pkgs.cacheClient))
-	api.GET("ws", ctrls.chatCtrl.ConnectWebsocket)                  //连接webscket
-	api.GET("upload/qiniu/params", ctrls.systemCtrl.GetQiniuParams) //获取七牛云参数
-	api.GET("configs", ctrls.systemCtrl.GetConfigs)                 //获取配置
+	api.GET("ws", ctrls.chatCtrl.ConnectWebsocket)  //连接webscket
+	api.GET("configs", ctrls.systemCtrl.GetConfigs) //获取配置
 
 	api.GET("me/info", ctrls.accountCtrl.Info)                      //个人信息
 	api.PUT("me/update/password", ctrls.accountCtrl.UpdatePassword) //修改密码
