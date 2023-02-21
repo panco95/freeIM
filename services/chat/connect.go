@@ -93,7 +93,7 @@ func (s *Service) ConnChannel(c *Connection) {
 			if err != nil {
 				s.log.Errorf("ConnChannel PING %v", err)
 			}
-			time.Sleep(time.Second * 2)
+			time.Sleep(time.Second * 10)
 		}
 	}()
 
