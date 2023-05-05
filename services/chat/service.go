@@ -16,6 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
+type MsgFunc func(conn *Connection, message *models.Message) error
+
 type Service struct {
 	log         *zap.SugaredLogger
 	mysqlClient *database.Client
@@ -24,7 +26,8 @@ type Service struct {
 
 	connections       map[uint][]*Connection // 连接表
 	connectionsLocker sync.RWMutex           // 连接并发锁
-	counter           atomic.Uint64
+	counter           atomic.Uint64          // 链接计数器
+	msgRouter         map[string]MsgFunc     // 消息路由表
 
 	RPC *RPC
 }
@@ -34,7 +37,7 @@ func NewService(
 	manager *etcd.Manager,
 	config *config.Config,
 ) *Service {
-	return &Service{
+	s := &Service{
 		log:         zap.S().With("module", "services.chat.service"),
 		mysqlClient: mysqlClient,
 		manager:     manager,
@@ -43,7 +46,11 @@ func NewService(
 		connections:       make(map[uint][]*Connection),
 		connectionsLocker: sync.RWMutex{},
 		counter:           atomic.Uint64{},
+		msgRouter:         map[string]MsgFunc{},
 	}
+
+	s.SetRouters()
+	return s
 }
 
 // 发送消息

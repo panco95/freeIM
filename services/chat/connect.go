@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"im/models"
@@ -98,18 +97,16 @@ func (s *Service) ConnChannel(c *Connection) {
 	}()
 
 	for msg := range c.Channel {
-		var message *models.Message
+		message := &models.Message{}
 		if err := json.Unmarshal(msg, message); err != nil {
+			s.log.Error(err)
 			continue
 		}
 
-		switch message.Type {
-		case models.MessageTypeInput: //对方正在输入
-			message.FromId = c.AccountId
-			err := s.RPC.SendMessageCall(context.Background(), message)
-			if err != nil {
-				s.log.Errorf("ConnChannel MessageTypeInput RPC.SendMessageCall %v", err)
-			}
+		fn := s.msgRouter[string(message.Type)]
+		err := fn(c, message)
+		if err != nil {
+			s.log.Errorf("ConnChannel msgRouter call %v", err)
 		}
 	}
 }
