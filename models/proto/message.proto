@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "models/proto";
+
+package im;
+
+import "google/protobuf/timestamp.proto";
+
+message Message {
+  int64 id = 1;
+  int64 from_id = 2;
+  int64 to_id = 3;
+  string ope = 4;
+  string type = 5;
+  string body = 6;
+  bool is_private = 7;
+  string status = 8;
+  bool is_read = 9;
+  google.protobuf.Timestamp created_at = 10;
+}

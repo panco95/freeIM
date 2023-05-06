@@ -39,3 +39,6 @@ coverage-report:
 .PHONY: mocks
 mocks:
 	go generate $(shell go list ./... | grep -v /vendor/)
+
+protoc:
+	protoc -I=models/proto --go_out=. message.proto internal.proto

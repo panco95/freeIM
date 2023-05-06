@@ -23,11 +23,17 @@ func NewJwtCheckMiddleware(
 		var id uint = 0
 		token := c.GetHeader("Authorization")
 		if token == "" {
-			token, _ = c.GetQuery("t")
+			token = c.DefaultQuery("t", "")
 		}
-		if token != "" {
-			id = jwt.ParseToken(token)
+		if token == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, resp.Response{
+				Code:    resp.ERROR,
+				Message: resp.TIMEOUT,
+			})
+			return
 		}
+
+		id = jwt.ParseToken(token)
 		if id == 0 {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, resp.Response{
 				Code:    resp.ERROR,
@@ -70,6 +76,8 @@ func NewJwtCheckMiddleware(
 
 		// Context存储用户id
 		c.Set("id", id)
+		c.Set("platform", c.DefaultQuery("platform", "unknown"))
+		c.Set("protocol", c.DefaultQuery("protocol", "json"))
 
 		// Token刷新
 		newlyToken, _ := jwt.BuildToken(

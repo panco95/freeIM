@@ -14,6 +14,6 @@ func (s *Service) SetRouters() {
 
 func (s *Service) Ping(c *Connection, message *models.Message) error {
 	message.FromId = c.AccountId
-	err := c.Conn.WriteJSON(message)
+	err := s.SendProtocol(c, message)
 	return err
 }

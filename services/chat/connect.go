@@ -1,11 +1,9 @@
 package chat
 
 import (
-	"encoding/json"
 	"fmt"
 	"im/models"
 	"im/pkg/utils"
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +16,8 @@ type Connection struct {
 	AccountId uint
 	Conn      *websocket.Conn
 	Channel   chan []byte
-	Platform  string
+	Platform  models.Platform
+	Protocol  Protocol
 	Ctx       *gin.Context
 	Connected bool
 }
@@ -38,13 +37,15 @@ func (s *Service) ConnectWebsocket(ctx *gin.Context) {
 
 	accountId := ctx.GetUint("id")
 	platform := ctx.GetString("platform")
+	protocol := ctx.GetString("protocol")
 
 	c := Connection{
 		Conn:      conn,
 		Channel:   make(chan []byte),
 		Ctx:       ctx,
 		AccountId: accountId,
-		Platform:  platform,
+		Platform:  models.Platform(platform),
+		Protocol:  Protocol(protocol),
 		Connected: true,
 	}
 	go s.ConnChannel(&c)
@@ -86,25 +87,25 @@ func (s *Service) ConnChannel(c *Connection) {
 			if !c.Connected {
 				return
 			}
-			err := c.Conn.WriteJSON(&models.Message{
+			err := s.SendProtocol(c, &models.Message{
 				Type: models.MessageTypePing,
 			})
 			if err != nil {
-				s.log.Errorf("ConnChannel PING %v", err)
+				s.log.Errorf("ConnChannel Ping %v", err)
 			}
 			time.Sleep(time.Second * 10)
 		}
 	}()
 
 	for msg := range c.Channel {
-		message := &models.Message{}
-		if err := json.Unmarshal(msg, message); err != nil {
-			s.log.Error(err)
+		message, err := s.ToMessage(c.Protocol, msg)
+		if err != nil {
+			// s.log.Errorf("ConnChannel ToMessage %v", err)
 			continue
 		}
 
 		fn := s.msgRouter[string(message.Type)]
-		err := fn(c, message)
+		err = fn(c, message)
 		if err != nil {
 			s.log.Errorf("ConnChannel msgRouter call %v", err)
 		}
@@ -126,14 +127,4 @@ func (s *Service) UpdateOnlineStatus(accountId uint, onlineStatus models.OnlineS
 	if err != nil {
 		s.log.Errorf("ConnChannel UpdateOnlineStatus %v", err)
 	}
-}
-
-var websocketUpgrade = websocket.Upgrader{
-	ReadBufferSize:   1024,
-	WriteBufferSize:  1024,
-	HandshakeTimeout: 5 * time.Second,
-	// 取消ws跨域校验
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
 }

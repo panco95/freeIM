@@ -85,6 +85,7 @@ var (
 	PlatformH5      Platform = "h5"
 	PlatformIOS     Platform = "ios"
 	PlatformAndroid Platform = "android"
+	PlatformUnknown Platform = "unknown"
 )
 
 type BasicCaptchaReq struct {

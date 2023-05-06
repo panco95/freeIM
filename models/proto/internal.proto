@@ -1,0 +1,20 @@
+// 服务内部调用proto
+syntax = "proto3";
+
+option go_package = "models/proto";
+
+package im;
+
+import "message.proto";
+
+message SendMessageReq {
+  im.Message message = 1;
+}
+
+message SendMessageRes {
+  bool successed = 1;
+}
+
+service Internal {
+  rpc SendMessage(SendMessageReq) returns (SendMessageRes) {}
+}

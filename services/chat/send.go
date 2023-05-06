@@ -26,7 +26,7 @@ func (s *Service) Send(ctx context.Context, msg *models.Message) {
 func (s *Service) SendToAccountId(ctx context.Context, accountId uint, msg *models.Message) {
 	if _, ok := s.connections[accountId]; ok {
 		for _, conn := range s.connections[accountId] {
-			err := conn.Conn.WriteJSON(msg)
+			err := s.SendProtocol(conn, msg)
 			if err != nil {
 				s.log.Errorf("Send OpeFriend %v", err)
 			}
