@@ -3,10 +3,11 @@ package chat
 import (
 	"encoding/json"
 	"errors"
-	"im/models"
-	protoModels "im/models/proto"
 	"net/http"
 	"time"
+
+	"im/models"
+	"im/models/pb"
 
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/proto"
@@ -61,7 +62,7 @@ func (s *Service) ToMessage(protocol Protocol, msg []byte) (*models.Message, err
 	case ProtocolJson:
 		err = json.Unmarshal(msg, message)
 	case ProtocolProto:
-		messageProto := &protoModels.Message{}
+		messageProto := &pb.Message{}
 		if err := proto.Unmarshal(msg, messageProto); err != nil {
 			return nil, err
 		}
@@ -93,7 +94,7 @@ func (s *Service) ToMessageBytes(protocol Protocol, message *models.Message) (da
 	case ProtocolJson:
 		data, err = json.Marshal(message)
 	case ProtocolProto:
-		messageProto := &protoModels.Message{}
+		messageProto := &pb.Message{}
 		messageProto.Id = int64(message.ID)
 		messageProto.FromId = int64(message.FromId)
 		messageProto.ToId = int64(message.ToId)

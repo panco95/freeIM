@@ -1,7 +1,7 @@
 // 服务内部调用proto
 syntax = "proto3";
 
-option go_package = "models/proto";
+option go_package = "models/pb";
 
 package im;
 

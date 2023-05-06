@@ -41,4 +41,4 @@ mocks:
 	go generate $(shell go list ./... | grep -v /vendor/)
 
 protoc:
-	protoc -I=models/proto --go_out=. message.proto internal.proto
+	protoc -I=models/pb --go_out=. message.proto internal.proto
