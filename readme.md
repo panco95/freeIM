@@ -10,7 +10,8 @@ A free open source im server used by golang.
 - [x] Group socail
 - [x] Neighborhood social (contains chatGroup)
 - [x] Distributed connection
-- [x] Websocket protocol
+- [x] Websocket network protocol
+- [x] Json/Protobuf data protocol
 - [x] Multiple message types
 - [x] High performance
 - [ ] Large number of users chat group
